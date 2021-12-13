@@ -6,7 +6,7 @@
 //  ▐█ ▀█▪▀▄.▀·█▌▐█•██  ▪     ▐█ ▀█▪▪      █▌█▌▪
 //  ▐█▀▀█▄▐▀▀▪▄▐█▐▐▌ ▐█.▪ ▄█▀▄ ▐█▀▀█▄ ▄█▀▄  ·██·
 //  ██▄▪▐█▐█▄▄▌██▐█▌ ▐█▌·▐█▌.▐▌██▄▪▐█▐█▌.▐▌▪▐█·█▌
-//  ·▀▀▀▀  ▀▀▀ ▀▀ █▪ ▀▀▀  ▀█▄▀▪·▀▀▀▀  ▀█▄▀▪•▀▀ ▀▀
+//  ·▀▀▀▀  ▀▀▀ ▀▀ █▪ ▀▀▀  ▀█▄▀▪·▀▀▀▀  ▀█▄▀▪•▀▀ ▀▀ V2
 
 // This contract stores funds, handles their transfers, supports flash loans and strategies.
 
@@ -60,10 +60,9 @@ contract BentoBox is MasterContractManager, BoringBatchable {
     // *** STRUCTS *** //
     // *************** //
 
-    struct StrategyData {
-        uint64 strategyStartDate;
-        uint64 targetPercentage;
-        uint128 balance; // the balance of the strategy that BentoBox thinks is in there
+    struct Asset {
+        IERC20 token;
+        uint32 strategy;
     }
 
     // ******************************** //
@@ -85,15 +84,13 @@ contract BentoBox is MasterContractManager, BoringBatchable {
     // *** VARIABLES *** //
     // ***************** //
 
-    // Balance per token per address/contract in shares
-    mapping(IERC20 => mapping(address => uint256)) public balanceOf;
+    // Balance per token per strategy per address/contract in shares
+    mapping(IERC20 => mapping(IStrategy => mapping(address => uint256))) public balanceOf;
 
     // Rebase from amount to share
-    mapping(IERC20 => Rebase) public totals;
+    mapping(IERC20 => mapping(IStrategy => Rebase)) public totals;
 
-    mapping(IERC20 => IStrategy) public strategy;
-    mapping(IERC20 => IStrategy) public pendingStrategy;
-    mapping(IERC20 => StrategyData) public strategyData;
+    mapping(IStrategy => uint128) public strategyBalance;
 
     // ******************* //
     // *** CONSTRUCTOR *** //
@@ -129,8 +126,8 @@ contract BentoBox is MasterContractManager, BoringBatchable {
 
     /// @dev Returns the total balance of `token` this contracts holds,
     /// plus the total amount this contract thinks the strategy holds.
-    function _tokenBalanceOf(IERC20 token) internal view returns (uint256 amount) {
-        amount = token.balanceOf(address(this)).add(strategyData[token].balance);
+    function _tokenBalanceOf(IERC20 token, IStrategy strategy) internal view returns (uint256 amount) {
+        amount = token.balanceOf(address(this)).add(strategyBalance[strategy]);
     }
 
     // ************************ //
@@ -144,10 +141,11 @@ contract BentoBox is MasterContractManager, BoringBatchable {
     /// @return share The token amount represented in shares.
     function toShare(
         IERC20 token,
+        IStrategy strategy,
         uint256 amount,
         bool roundUp
     ) external view returns (uint256 share) {
-        share = totals[token].toBase(amount, roundUp);
+        share = totals[token][strategy].toBase(amount, roundUp);
     }
 
     /// @dev Helper function represent shares back into the `token` amount.
@@ -157,10 +155,11 @@ contract BentoBox is MasterContractManager, BoringBatchable {
     /// @return amount The share amount back into native representation.
     function toAmount(
         IERC20 token,
+        IStrategy strategy,
         uint256 share,
         bool roundUp
     ) external view returns (uint256 amount) {
-        amount = totals[token].toElastic(share, roundUp);
+        amount = totals[token][strategy].toElastic(share, roundUp);
     }
 
     /// @notice Deposit an amount of `token` represented in either `amount` or `share`.
@@ -173,6 +172,7 @@ contract BentoBox is MasterContractManager, BoringBatchable {
     /// @return shareOut The deposited amount repesented in shares.
     function deposit(
         IERC20 token_,
+        IStrategy strategy,
         address from,
         address to,
         uint256 amount,
@@ -183,7 +183,7 @@ contract BentoBox is MasterContractManager, BoringBatchable {
 
         // Effects
         IERC20 token = token_ == USE_ETHEREUM ? wethToken : token_;
-        Rebase memory total = totals[token];
+        Rebase memory total = totals[token][strategy];
 
         // If a new token gets added, the tokenSupply call checks that this is a deployed contract. Needed for security.
         require(total.elastic != 0 || token.totalSupply() > 0, "BentoBox: No tokens");
@@ -203,14 +203,14 @@ contract BentoBox is MasterContractManager, BoringBatchable {
         // For ETH, the full balance is available, so no need to check.
         // During flashloans the _tokenBalanceOf is lower than 'reality', so skimming deposits will mostly fail during a flashloan.
         require(
-            from != address(this) || token_ == USE_ETHEREUM || amount <= _tokenBalanceOf(token).sub(total.elastic),
+            from != address(this) || token_ == USE_ETHEREUM || amount <= _tokenBalanceOf(token, strategy).sub(total.elastic),
             "BentoBox: Skim too much"
         );
 
-        balanceOf[token][to] = balanceOf[token][to].add(share);
+        balanceOf[token][strategy][to] = balanceOf[token][strategy][to].add(share);
         total.base = total.base.add(share.to128());
         total.elastic = total.elastic.add(amount.to128());
-        totals[token] = total;
+        totals[token][strategy] = total;
 
         // Interactions
         // During the first deposit, we check that this token is 'real'
@@ -236,6 +236,7 @@ contract BentoBox is MasterContractManager, BoringBatchable {
     /// @param share Like above, but `share` takes precedence over `amount`.
     function withdraw(
         IERC20 token_,
+        IStrategy strategy,
         address from,
         address to,
         uint256 amount,
@@ -246,7 +247,7 @@ contract BentoBox is MasterContractManager, BoringBatchable {
 
         // Effects
         IERC20 token = token_ == USE_ETHEREUM ? wethToken : token_;
-        Rebase memory total = totals[token];
+        Rebase memory total = totals[token][strategy];
         if (share == 0) {
             // value of the share paid could be lower than the amount paid due to rounding, in that case, add a share (Always round up)
             share = total.toBase(amount, true);
@@ -255,12 +256,12 @@ contract BentoBox is MasterContractManager, BoringBatchable {
             amount = total.toElastic(share, false);
         }
 
-        balanceOf[token][from] = balanceOf[token][from].sub(share);
+        balanceOf[token][strategy][from] = balanceOf[token][strategy][from].sub(share);
         total.elastic = total.elastic.sub(amount.to128());
         total.base = total.base.sub(share.to128());
         // There have to be at least 1000 shares left to prevent reseting the share/amount ratio (unless it's fully emptied)
         require(total.base >= MINIMUM_SHARE_BALANCE || total.base == 0, "BentoBox: cannot empty");
-        totals[token] = total;
+        totals[token][strategy] = total;
 
         // Interactions
         if (token_ == USE_ETHEREUM) {
@@ -289,6 +290,7 @@ contract BentoBox is MasterContractManager, BoringBatchable {
     // F3: This isn't combined with transferMultiple for gas optimization
     function transfer(
         IERC20 token,
+        IStrategy strategy,
         address from,
         address to,
         uint256 share
@@ -297,8 +299,8 @@ contract BentoBox is MasterContractManager, BoringBatchable {
         require(to != address(0), "BentoBox: to not set"); // To avoid a bad UI from burning funds
 
         // Effects
-        balanceOf[token][from] = balanceOf[token][from].sub(share);
-        balanceOf[token][to] = balanceOf[token][to].add(share);
+        balanceOf[token][strategy][from] = balanceOf[token][strategy][from].sub(share);
+        balanceOf[token][strategy][to] = balanceOf[token][strategy][to].add(share);
 
         emit LogTransfer(token, from, to, share);
     }
@@ -312,6 +314,7 @@ contract BentoBox is MasterContractManager, BoringBatchable {
     // F3: This isn't combined with transfer for gas optimization
     function transferMultiple(
         IERC20 token,
+        IStrategy strategy,
         address from,
         address[] calldata tos,
         uint256[] calldata shares
@@ -324,11 +327,11 @@ contract BentoBox is MasterContractManager, BoringBatchable {
         uint256 len = tos.length;
         for (uint256 i = 0; i < len; i++) {
             address to = tos[i];
-            balanceOf[token][to] = balanceOf[token][to].add(shares[i]);
+            balanceOf[token][strategy][to] = balanceOf[token][strategy][to].add(shares[i]);
             totalAmount = totalAmount.add(shares[i]);
             emit LogTransfer(token, from, to, shares[i]);
         }
-        balanceOf[token][from] = balanceOf[token][from].sub(totalAmount);
+        balanceOf[token][strategy][from] = balanceOf[token][strategy][from].sub(totalAmount);
     }
 
     /// @notice Flashloan ability.
@@ -345,6 +348,7 @@ contract BentoBox is MasterContractManager, BoringBatchable {
         IFlashBorrower borrower,
         address receiver,
         IERC20 token,
+        IStrategy strategy,
         uint256 amount,
         bytes calldata data
     ) public {
@@ -353,7 +357,7 @@ contract BentoBox is MasterContractManager, BoringBatchable {
 
         borrower.onFlashLoan(msg.sender, token, amount, fee, data);
 
-        require(_tokenBalanceOf(token) >= totals[token].addElastic(fee.to128()), "BentoBox: Wrong amount");
+        require(_tokenBalanceOf(token, strategy) >= totals[token][strategy].addElastic(fee.to128()), "BentoBox: Wrong amount");
         emit LogFlashLoan(address(borrower), token, amount, fee, receiver);
     }
 
@@ -371,6 +375,7 @@ contract BentoBox is MasterContractManager, BoringBatchable {
         IBatchFlashBorrower borrower,
         address[] calldata receivers,
         IERC20[] calldata tokens,
+        IStrategy[] calldata strategies,
         uint256[] calldata amounts,
         bytes calldata data
     ) public {
@@ -388,67 +393,10 @@ contract BentoBox is MasterContractManager, BoringBatchable {
 
         for (uint256 i = 0; i < len; i++) {
             IERC20 token = tokens[i];
-            require(_tokenBalanceOf(token) >= totals[token].addElastic(fees[i].to128()), "BentoBox: Wrong amount");
+            IStrategy strategy = strategies[i];
+            require(_tokenBalanceOf(token, strategy) >= totals[token][strategy].addElastic(fees[i].to128()), "BentoBox: Wrong amount");
             emit LogFlashLoan(address(borrower), token, amounts[i], fees[i], receivers[i]);
         }
-    }
-
-    /// @notice Sets the target percentage of the strategy for `token`.
-    /// @dev Only the owner of this contract is allowed to change this.
-    /// @param token The address of the token that maps to a strategy to change.
-    /// @param targetPercentage_ The new target in percent. Must be lesser or equal to `MAX_TARGET_PERCENTAGE`.
-    function setStrategyTargetPercentage(IERC20 token, uint64 targetPercentage_) public onlyOwner {
-        // Checks
-        require(targetPercentage_ <= MAX_TARGET_PERCENTAGE, "StrategyManager: Target too high");
-
-        // Effects
-        strategyData[token].targetPercentage = targetPercentage_;
-        emit LogStrategyTargetPercentage(token, targetPercentage_);
-    }
-
-    /// @notice Sets the contract address of a new strategy that conforms to `IStrategy` for `token`.
-    /// Must be called twice with the same arguments.
-    /// A new strategy becomes pending first and can be activated once `STRATEGY_DELAY` is over.
-    /// @dev Only the owner of this contract is allowed to change this.
-    /// @param token The address of the token that maps to a strategy to change.
-    /// @param newStrategy The address of the contract that conforms to `IStrategy`.
-    // F5 - Checks-Effects-Interactions pattern followed? (SWC-107)
-    // F5: Total amount is updated AFTER interaction. But strategy is under our control.
-    // C4 - Use block.timestamp only for long intervals (SWC-116)
-    // C4: block.timestamp is used for a period of 2 weeks, which is long enough
-    function setStrategy(IERC20 token, IStrategy newStrategy) public onlyOwner {
-        StrategyData memory data = strategyData[token];
-        IStrategy pending = pendingStrategy[token];
-        if (data.strategyStartDate == 0 || pending != newStrategy) {
-            pendingStrategy[token] = newStrategy;
-            // C1 - All math done through BoringMath (SWC-101)
-            // C1: Our sun will swallow the earth well before this overflows
-            data.strategyStartDate = (block.timestamp + STRATEGY_DELAY).to64();
-            emit LogStrategyQueued(token, newStrategy);
-        } else {
-            require(data.strategyStartDate != 0 && block.timestamp >= data.strategyStartDate, "StrategyManager: Too early");
-            if (address(strategy[token]) != address(0)) {
-                int256 balanceChange = strategy[token].exit(data.balance);
-                // Effects
-                if (balanceChange > 0) {
-                    uint256 add = uint256(balanceChange);
-                    totals[token].addElastic(add);
-                    emit LogStrategyProfit(token, add);
-                } else if (balanceChange < 0) {
-                    uint256 sub = uint256(-balanceChange);
-                    totals[token].subElastic(sub);
-                    emit LogStrategyLoss(token, sub);
-                }
-
-                emit LogStrategyDivest(token, data.balance);
-            }
-            strategy[token] = pending;
-            data.strategyStartDate = 0;
-            data.balance = 0;
-            pendingStrategy[token] = IStrategy(0);
-            emit LogStrategySet(token, newStrategy);
-        }
-        strategyData[token] = data;
     }
 
     /// @notice The actual process of yield farming. Executes the strategy of `token`.
@@ -462,22 +410,21 @@ contract BentoBox is MasterContractManager, BoringBatchable {
     // F5: Not followed to prevent reentrancy issues with flashloans and BentoBox skims?
     function harvest(
         IERC20 token,
+        IStrategy strategy,
         bool balance,
         uint256 maxChangeAmount
     ) public {
-        StrategyData memory data = strategyData[token];
-        IStrategy _strategy = strategy[token];
-        int256 balanceChange = _strategy.harvest(data.balance, msg.sender);
+        int256 balanceChange = strategy.harvest(strategyBalance[strategy], msg.sender);
         if (balanceChange == 0 && !balance) {
             return;
         }
 
-        uint256 totalElastic = totals[token].elastic;
+        uint256 totalElastic = totals[token][strategy].elastic;
 
         if (balanceChange > 0) {
             uint256 add = uint256(balanceChange);
             totalElastic = totalElastic.add(add);
-            totals[token].elastic = totalElastic.to128();
+            totals[token][strategy].elastic = totalElastic.to128();
             emit LogStrategyProfit(token, add);
         } else if (balanceChange < 0) {
             // C1 - All math done through BoringMath (SWC-101)
@@ -485,37 +432,35 @@ contract BentoBox is MasterContractManager, BoringBatchable {
             // But tokens with balances that large are not supported by the BentoBox.
             uint256 sub = uint256(-balanceChange);
             totalElastic = totalElastic.sub(sub);
-            totals[token].elastic = totalElastic.to128();
-            data.balance = data.balance.sub(sub.to128());
+            totals[token][strategy].elastic = totalElastic.to128();
+            strategyBalance[strategy] = strategyBalance[strategy].sub(sub.to128());
             emit LogStrategyLoss(token, sub);
         }
 
         if (balance) {
-            uint256 targetBalance = totalElastic.mul(data.targetPercentage) / 100;
+            uint256 targetBalance = totalElastic.mul(80 /* TODO */) / 100;
             // if data.balance == targetBalance there is nothing to update
-            if (data.balance < targetBalance) {
-                uint256 amountOut = targetBalance.sub(data.balance);
+            if (strategyBalance[strategy] < targetBalance) {
+                uint256 amountOut = targetBalance.sub(strategyBalance[strategy]);
                 if (maxChangeAmount != 0 && amountOut > maxChangeAmount) {
                     amountOut = maxChangeAmount;
                 }
-                token.safeTransfer(address(_strategy), amountOut);
-                data.balance = data.balance.add(amountOut.to128());
-                _strategy.skim(amountOut);
+                token.safeTransfer(address(strategy), amountOut);
+                strategyBalance[strategy] = strategyBalance[strategy].add(amountOut.to128());
+                strategy.skim(amountOut);
                 emit LogStrategyInvest(token, amountOut);
-            } else if (data.balance > targetBalance) {
-                uint256 amountIn = data.balance.sub(targetBalance.to128());
+            } else if (strategyBalance[strategy] > targetBalance) {
+                uint256 amountIn = strategyBalance[strategy].sub(targetBalance.to128());
                 if (maxChangeAmount != 0 && amountIn > maxChangeAmount) {
                     amountIn = maxChangeAmount;
                 }
 
-                uint256 actualAmountIn = _strategy.withdraw(amountIn);
+                uint256 actualAmountIn = strategy.withdraw(amountIn);
 
-                data.balance = data.balance.sub(actualAmountIn.to128());
+                strategyBalance[strategy] = strategyBalance[strategy].sub(actualAmountIn.to128());
                 emit LogStrategyDivest(token, actualAmountIn);
             }
         }
-
-        strategyData[token] = data;
     }
 
     // Contract should be able to receive ETH deposits to support deposit & skim
