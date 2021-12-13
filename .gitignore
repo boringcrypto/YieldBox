@@ -1,0 +1,17 @@
+artifacts/
+build/
+cache/
+.cache/
+coverage/
+node_modules/
+package-lock.json
+.coverage_artifacts/
+.coverage_contracts/
+coverage/
+coverage.json
+scripts/make_abi.js
+.env
+yarn-error.log
+.last_confs/*
+.certora_config/*
+.certora_*.json
