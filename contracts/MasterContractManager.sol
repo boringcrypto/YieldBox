@@ -1,20 +1,17 @@
 // SPDX-License-Identifier: UNLICENSED
 // Audit on 5-Jan-2021 by Keno and BoringCrypto
 pragma solidity 0.6.12;
-import "@boringcrypto/boring-solidity/contracts/BoringOwnable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 
 // solhint-disable no-inline-assembly
 
-contract MasterContractManager is BoringOwnable, BoringFactory {
+contract MasterContractManager is BoringFactory {
     event LogWhiteListMasterContract(address indexed masterContract, bool approved);
     event LogSetMasterContractApproval(address indexed masterContract, address indexed user, bool approved);
     event LogRegisterProtocol(address indexed protocol);
 
     /// @notice masterContract to user to approval state
     mapping(address => mapping(address => bool)) public masterContractApproved;
-    /// @notice masterContract to whitelisted state for approval without signed message
-    mapping(address => bool) public whitelistedMasterContracts;
     /// @notice user nonces for masterContract approvals
     mapping(address => uint256) public nonces;
 
@@ -38,7 +35,7 @@ contract MasterContractManager is BoringOwnable, BoringFactory {
     }
 
     function _calculateDomainSeparator(uint256 chainId) private view returns (bytes32) {
-        return keccak256(abi.encode(DOMAIN_SEPARATOR_SIGNATURE_HASH, keccak256("BentoBox V1"), chainId, address(this)));
+        return keccak256(abi.encode(DOMAIN_SEPARATOR_SIGNATURE_HASH, keccak256("BoringBox V2"), chainId, address(this)));
     }
 
     // solhint-disable-next-line func-name-mixedcase
@@ -56,16 +53,6 @@ contract MasterContractManager is BoringOwnable, BoringFactory {
         emit LogRegisterProtocol(msg.sender);
     }
 
-    /// @notice Enables or disables a contract for approval without signed message.
-    function whitelistMasterContract(address masterContract, bool approved) public onlyOwner {
-        // Checks
-        require(masterContract != address(0), "MasterCMgr: Cannot approve 0");
-
-        // Effects
-        whitelistedMasterContracts[masterContract] = approved;
-        emit LogWhiteListMasterContract(masterContract, approved);
-    }
-
     /// @notice Approves or revokes a `masterContract` access to `user` funds.
     /// @param user The address of the user that approves or revokes access.
     /// @param masterContract The address who gains or loses access.
@@ -73,10 +60,7 @@ contract MasterContractManager is BoringOwnable, BoringFactory {
     /// @param v Part of the signature. (See EIP-191)
     /// @param r Part of the signature. (See EIP-191)
     /// @param s Part of the signature. (See EIP-191)
-    // F4 - Check behaviour for all function arguments when wrong or extreme
-    // F4: Don't allow masterContract 0 to be approved. Unknown contracts will have a masterContract of 0.
-    // F4: User can't be 0 for signed approvals because the recoveredAddress will be 0 if ecrecover fails
-    function setMasterContractApproval(
+    function giveFullAccessToAllYourFunds(
         address user,
         address masterContract,
         bool approved,
@@ -91,19 +75,12 @@ contract MasterContractManager is BoringOwnable, BoringFactory {
         if (r == 0 && s == 0 && v == 0) {
             require(user == msg.sender, "MasterCMgr: user not sender");
             require(masterContractOf[user] == address(0), "MasterCMgr: user is clone");
-            require(whitelistedMasterContracts[masterContract], "MasterCMgr: not whitelisted");
         } else {
             // Important for security - any address without masterContract has address(0) as masterContract
             // So approving address(0) would approve every address, leading to full loss of funds
             // Also, ecrecover returns address(0) on failure. So we check this:
             require(user != address(0), "MasterCMgr: User cannot be 0");
 
-            // C10 - Protect signatures against replay, use nonce and chainId (SWC-121)
-            // C10: nonce + chainId are used to prevent replays
-            // C11 - All signatures strictly EIP-712 (SWC-117 SWC-122)
-            // C11: signature is EIP-712 compliant
-            // C12 - abi.encodePacked can't contain variable length user input (SWC-133)
-            // C12: abi.encodePacked has fixed length parameters
             bytes32 digest =
                 keccak256(
                     abi.encodePacked(
