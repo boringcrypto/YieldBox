@@ -100,16 +100,19 @@ contract BoringBoxV2 is MasterContractManager, BoringBatchable {
         uint256 amount,
         bool roundUp
     ) internal pure returns (uint256 shares) {
-        if (totalAmount == 0) {
-            shares = amount;
-        } else {
-            // Add imaginary 1000 units
-            totalShares_ = totalShares_.add(1000);
-            totalAmount = totalAmount.add(1000);
-            shares = amount.mul(totalShares_) / totalAmount;
-            if (roundUp && shares.mul(totalAmount) / totalShares_ < amount) {
-                shares = shares.add(1);
-            }
+        // To prevent reseting the ratio due to withdrawal of all shares, we start with
+        // 1 amount/1e8 shares already burned. This also starts with a 1 : 1e8 ratio which
+        // functions like 8 decimal fixed point math. This prevents ratio attacks or inaccuracy
+        // due to 'gifting' or rebasing tokens. (Up to a certain degree)
+        totalAmount = totalAmount.add(1);
+        totalShares_ = totalShares_.add(1e8);
+
+        // Calculte the shares using te current amount to share ratio
+        shares = amount.mul(totalShares_) / totalAmount;
+
+        // Default is to round down (Solidity), round up if required
+        if (roundUp && shares.mul(totalAmount) / totalShares_ < amount) {
+            shares = shares.add(1);
         }
     }
 
@@ -120,13 +123,19 @@ contract BoringBoxV2 is MasterContractManager, BoringBatchable {
         uint256 shares,
         bool roundUp
     ) internal pure returns (uint256 amount) {
-        if (totalShares_ == 0) {
-            amount = shares;
-        } else {
-            amount = shares.mul(totalShares_) / totalAmount;
-            if (roundUp && amount.mul(totalShares_) / totalAmount < shares) {
-                amount = amount.add(1);
-            }
+        // To prevent reseting the ratio due to withdrawal of all shares, we start with
+        // 1 amount/1e8 shares already burned. This also starts with a 1 : 1e8 ratio which
+        // functions like 8 decimal fixed point math. This prevents ratio attacks or inaccuracy
+        // due to 'gifting' or rebasing tokens. (Up to a certain degree)
+        totalAmount = totalAmount.add(1);
+        totalShares_ = totalShares_.add(1e8);
+
+        // Calculte the amount using te current amount to share ratio
+        amount = shares.mul(totalShares_) / totalAmount;
+
+        // Default is to round down (Solidity), round up if required
+        if (roundUp && amount.mul(totalShares_) / totalAmount < shares) {
+            amount = amount.add(1);
         }
     }
 
