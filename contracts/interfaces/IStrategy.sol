@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.6.12;
 
+import "@boringcrypto/boring-solidity/contracts/interfaces/IERC20.sol";
+
 interface IStrategy {
+    function currentBalance(IERC20 token) external view returns (uint256 amount);
+
     /// @notice Send the assets to the Strategy and call skim to invest them.
     /// @param amount The amount of tokens to invest.
     function skim(uint256 amount) external;
