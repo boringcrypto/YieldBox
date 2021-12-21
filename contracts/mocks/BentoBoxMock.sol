@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
-import "../BentoBox.sol";
+import "../BoringBox.sol";
 
-contract BentoBoxMock is BentoBox {
+contract BentoBoxMock is BoringBox {
     constructor(IERC20 weth) public BentoBox(weth) {
         return;
     }
