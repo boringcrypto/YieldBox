@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 
-// The BoringBox V2
+// The BoringBox
 // The original BentoBox is owned by the Sushi team to set strategies for each token. Abracadabra wanted different strategies, which led to
-// them launching their own DegenBox. Version 2 solves this by allowing an unlimited number of strategies for each token in a fully
+// them launching their own DegenBox. The BoringBox solves this by allowing an unlimited number of strategies for each token in a fully
 // permissionless manner. The BoringBox has no owner and operates fully permissionless.
 
 // Other improvements:
@@ -16,39 +16,22 @@
 
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
-import "./interfaces/IFlashLoan.sol";
 import "./interfaces/IWETH.sol";
 import "./interfaces/IStrategy.sol";
-import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
+import "./interfaces/IERC1155TokenReceiver.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringAddress.sol";
-import "./MasterContractManager.sol";
+import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
+import "@boringcrypto/boring-solidity/contracts/Domain.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
-
-interface ERC1155TokenReceiver {
-    function onERC1155Received(
-        address _operator,
-        address _from,
-        uint256 _id,
-        uint256 _value,
-        bytes calldata _data
-    ) external returns (bytes4);
-
-    function onERC1155BatchReceived(
-        address _operator,
-        address _from,
-        uint256[] calldata _ids,
-        uint256[] calldata _values,
-        bytes calldata _data
-    ) external returns (bytes4);
-}
+import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 
 /// @title BoringBox
 /// @author BoringCrypto, Keno
 /// @notice The BoringBox is a vault for tokens. The stored tokens can assigned to strategies.
 /// Yield from this will go to the token depositors.
 /// Any funds transfered directly onto the BoringBox will be lost, use the deposit function instead.
-contract BoringBox is MasterContractManager, BoringBatchable {
+contract BoringBox is Domain, BoringBatchable, BoringFactory {
     using BoringMath for uint256;
     using BoringAddress for address;
     using BoringERC20 for IERC20;
@@ -72,9 +55,7 @@ contract BoringBox is MasterContractManager, BoringBatchable {
     // ******************************** //
 
     IERC20 private immutable wethToken;
-
     IERC20 private constant USE_ETHEREUM = IERC20(0);
-    uint256 private constant MINIMUM_SHARE_BALANCE = 1000; // To prevent the ratio going off
 
     // An asset is a token + a strategy
     struct Asset {
@@ -111,16 +92,12 @@ contract BoringBox is MasterContractManager, BoringBatchable {
 
     /// Modifier to check if the msg.sender is allowed to use funds belonging to the 'from' address.
     /// If 'from' is msg.sender, it's allowed.
-    /// If 'from' is the BoringBox itself, it's allowed. Any ETH, token balances (above the known balances) or BoringBox balances
-    /// can be taken by anyone.
-    /// This is to enable skimming, not just for deposits, but also for withdrawals or transfers, enabling better composability.
-    /// If 'from' is a clone of a masterContract AND the 'from' address has approved that masterContract, it's allowed.
+    /// If 'msg.sender' is an address (an operator) that is approved by 'from', it's allowed.
+    /// If 'msg.sender' is a clone of a masterContract that is approved by 'from', it's allowed.
     modifier allowed(address from) {
-        if (from != msg.sender) {
-            // From is sender or you are skimming
+        if (from != msg.sender && !isApprovedForAll[from][msg.sender]) {
             address masterContract = masterContractOf[msg.sender];
-            require(masterContract != address(0), "BoringBox: no masterContract");
-            require(masterContractApproved[masterContract][from], "BoringBox: Transfer not approved");
+            require(masterContract != address(0) && isApprovedForAll[masterContract][from], "BoringBox: Not approved");
         }
         _;
     }
@@ -181,9 +158,52 @@ contract BoringBox is MasterContractManager, BoringBatchable {
         amount = asset.strategy == IStrategy(0) ? asset.token.safeBalanceOf(address(this)) : asset.strategy.currentBalance(asset.token);
     }
 
+    function _transfer(
+        uint256 id,
+        address from,
+        address to,
+        uint256 share
+    ) internal {
+        // Checks
+        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
+
+        // Effects
+        shares[id][from] = shares[id][from].sub(share);
+        shares[id][to] = shares[id][to].add(share);
+
+        emit TransferSingle(msg.sender, from, to, id, share);
+    }
+
+    function _batchTransfer(
+        address from,
+        address to,
+        uint256[] calldata ids_,
+        uint256[] calldata shares_
+    ) internal {
+        // Checks
+        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
+
+        // Effects
+        uint256 len = ids_.length;
+        for (uint256 i = 0; i < len; i++) {
+            uint256 id = ids_[i];
+            uint256 share = shares_[i];
+            shares[id][from] = shares[id][from].sub(share);
+            shares[id][to] = shares[id][to].add(share);
+        }
+
+        emit TransferBatch(msg.sender, from, to, ids_, shares_);
+    }
+
     // ************************ //
     // *** PUBLIC FUNCTIONS *** //
     // ************************ //
+
+    function supportsInterface(bytes4 interfaceID) external pure returns (bool) {
+        return
+            interfaceID == 0x01ffc9a7 || // EIP-165
+            interfaceID == 0xd9b67a26; // EIP-1155
+    }
 
     /// @dev Helper function to represent an `amount` of `token` in shares.
     /// @param id The id of the asset.
@@ -256,6 +276,7 @@ contract BoringBox is MasterContractManager, BoringBatchable {
 
         // Interactions
         // During the first deposit, we check that this token is 'real'
+        //if ()
         if (asset.token == USE_ETHEREUM) {
             IWETH(address(wethToken)).deposit{value: amount}();
             if (asset.strategy != IStrategy(0)) {
@@ -301,8 +322,6 @@ contract BoringBox is MasterContractManager, BoringBatchable {
 
         shares[id][from] = shares[id][from].sub(share);
         totalShares[id] = totalShares[id].sub(share.to128());
-        // There have to be at least 1000 shares left to prevent reseting the share/amount ratio (unless it's fully emptied)
-        require(totalShares[id] >= MINIMUM_SHARE_BALANCE || totalShares[id] == 0, "BoringBox: cannot empty");
 
         // Interactions
         if (asset.token == USE_ETHEREUM) {
@@ -316,43 +335,6 @@ contract BoringBox is MasterContractManager, BoringBatchable {
         emit LogWithdraw(token, strategy, from, to, amount, share);
         amountOut = amount;
         shareOut = share;
-    }
-
-    function _transfer(
-        uint256 id,
-        address from,
-        address to,
-        uint256 share
-    ) internal {
-        // Checks
-        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
-
-        // Effects
-        shares[id][from] = shares[id][from].sub(share);
-        shares[id][to] = shares[id][to].add(share);
-
-        emit TransferSingle(msg.sender, from, to, id, share);
-    }
-
-    function _batchTransfer(
-        address from,
-        address to,
-        uint256[] calldata ids_,
-        uint256[] calldata shares_
-    ) internal {
-        // Checks
-        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
-
-        // Effects
-        uint256 len = ids_.length;
-        for (uint256 i = 0; i < len; i++) {
-            uint256 id = ids_[i];
-            uint256 share = shares_[i];
-            shares[id][from] = shares[id][from].sub(share);
-            shares[id][to] = shares[id][to].add(share);
-        }
-
-        emit TransferBatch(msg.sender, from, to, ids_, shares_);
     }
 
     /// @notice Transfer shares from a user account to another one.
@@ -412,7 +394,7 @@ contract BoringBox is MasterContractManager, BoringBatchable {
 
         if (to.isContract()) {
             require(
-                ERC1155TokenReceiver(to).onERC1155Received(msg.sender, from, id, share, data) ==
+                IERC1155TokenReceiver(to).onERC1155Received(msg.sender, from, id, share, data) ==
                     bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)")),
                 "Wrong return value"
             );
@@ -434,7 +416,7 @@ contract BoringBox is MasterContractManager, BoringBatchable {
 
         if (to.isContract()) {
             require(
-                ERC1155TokenReceiver(to).onERC1155BatchReceived(msg.sender, from, ids_, shares_, data) ==
+                IERC1155TokenReceiver(to).onERC1155BatchReceived(msg.sender, from, ids_, shares_, data) ==
                     bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)")),
                 "Wrong return value"
             );
@@ -456,7 +438,63 @@ contract BoringBox is MasterContractManager, BoringBatchable {
     mapping(address => mapping(address => bool)) public isApprovedForAll;
 
     function setApprovalForAll(address operator, bool approved) external {
+        // Checks
+        require(operator != address(0), "BoringBox: operator not set"); // Important for security
+        require(masterContractOf[msg.sender] == address(0), "BoringBox: user is clone");
+
+        // Effects
         isApprovedForAll[msg.sender][operator] = approved;
+
+        emit ApprovalForAll(msg.sender, operator, approved);
+    }
+
+    // See https://eips.ethereum.org/EIPS/eip-191
+    string private constant EIP191_PREFIX_FOR_EIP712_STRUCTURED_DATA = "\x19\x01";
+    bytes32 private constant APPROVAL_SIGNATURE_HASH =
+        keccak256("setApprovalForAllWithPermit(address user,address operator,bool approved,uint256 nonce)");
+
+    /// @notice user nonces for masterContract approvals
+    mapping(address => uint256) public nonces;
+
+    // solhint-disable-next-line func-name-mixedcase
+    function DOMAIN_SEPARATOR() public view returns (bytes32) {
+        return _domainSeparator();
+    }
+
+    function setApprovalForAllWithPermit(
+        address user,
+        address operator,
+        bool approved,
+        uint8 v,
+        bytes32 r,
+        bytes32 s
+    ) public {
+        // Checks
+        require(operator != address(0), "BoringBox: operator not set"); // Important for security
+        require(masterContractOf[user] == address(0), "BoringBox: user is clone");
+
+        // Important for security - any address without masterContract has address(0) as masterContract
+        // So approving address(0) would approve every address, leading to full loss of funds
+        // Also, ecrecover returns address(0) on failure. So we check this:
+        require(user != address(0), "BoringBox: User cannot be 0");
+
+        bytes32 digest = _getDigest(
+            keccak256(
+                abi.encode(
+                    APPROVAL_SIGNATURE_HASH,
+                    user,
+                    operator,
+                    approved,
+                    nonces[user]++
+                )
+            )
+        );
+        address recoveredAddress = ecrecover(digest, v, r, s);
+        require(recoveredAddress == user, "MasterCMgr: Invalid Signature");
+
+        // Effects
+        isApprovedForAll[user][operator] = approved;
+        emit ApprovalForAll(user, operator, approved);
     }
 
     // Contract should be able to receive ETH deposits to support deposit & skim
