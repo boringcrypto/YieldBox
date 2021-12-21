@@ -21,17 +21,36 @@ import "./interfaces/IWETH.sol";
 import "./interfaces/IStrategy.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
+import "@boringcrypto/boring-solidity/contracts/libraries/BoringAddress.sol";
 import "./MasterContractManager.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
+
+interface ERC1155TokenReceiver {
+    function onERC1155Received(
+        address _operator,
+        address _from,
+        uint256 _id,
+        uint256 _value,
+        bytes calldata _data
+    ) external returns (bytes4);
+
+    function onERC1155BatchReceived(
+        address _operator,
+        address _from,
+        uint256[] calldata _ids,
+        uint256[] calldata _values,
+        bytes calldata _data
+    ) external returns (bytes4);
+}
 
 /// @title BoringBox
 /// @author BoringCrypto, Keno
 /// @notice The BoringBox is a vault for tokens. The stored tokens can assigned to strategies.
 /// Yield from this will go to the token depositors.
 /// Any funds transfered directly onto the BoringBox will be lost, use the deposit function instead.
-contract BoringBoxV2 is MasterContractManager, BoringBatchable {
+contract BoringBox is MasterContractManager, BoringBatchable {
     using BoringMath for uint256;
-    //using BoringMath128 for uint128;
+    using BoringAddress for address;
     using BoringERC20 for IERC20;
 
     // ************** //
@@ -288,6 +307,7 @@ contract BoringBoxV2 is MasterContractManager, BoringBatchable {
         // Interactions
         if (asset.token == USE_ETHEREUM) {
             IWETH(address(wethToken)).withdraw(amount);
+            // solhint-disable-next-line avoid-low-level-calls
             (bool success, ) = to.call{value: amount}("");
             require(success, "BoringBox: ETH transfer failed");
         } else {
@@ -296,6 +316,43 @@ contract BoringBoxV2 is MasterContractManager, BoringBatchable {
         emit LogWithdraw(token, strategy, from, to, amount, share);
         amountOut = amount;
         shareOut = share;
+    }
+
+    function _transfer(
+        uint256 id,
+        address from,
+        address to,
+        uint256 share
+    ) internal {
+        // Checks
+        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
+
+        // Effects
+        shares[id][from] = shares[id][from].sub(share);
+        shares[id][to] = shares[id][to].add(share);
+
+        emit TransferSingle(msg.sender, from, to, id, share);
+    }
+
+    function _batchTransfer(
+        address from,
+        address to,
+        uint256[] calldata ids_,
+        uint256[] calldata shares_
+    ) internal {
+        // Checks
+        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
+
+        // Effects
+        uint256 len = ids_.length;
+        for (uint256 i = 0; i < len; i++) {
+            uint256 id = ids_[i];
+            uint256 share = shares_[i];
+            shares[id][from] = shares[id][from].sub(share);
+            shares[id][to] = shares[id][to].add(share);
+        }
+
+        emit TransferBatch(msg.sender, from, to, ids_, shares_);
     }
 
     /// @notice Transfer shares from a user account to another one.
@@ -310,14 +367,7 @@ contract BoringBoxV2 is MasterContractManager, BoringBatchable {
         address to,
         uint256 share
     ) public allowed(from) {
-        // Checks
-        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
-
-        // Effects
-        shares[id][from] = shares[id][from].sub(share);
-        shares[id][to] = shares[id][to].add(share);
-
-        emit TransferSingle(msg.sender, from, to, id, share);
+        _transfer(id, from, to, share);
     }
 
     /// @notice Transfer shares from a user account to multiple other ones.
@@ -347,31 +397,67 @@ contract BoringBoxV2 is MasterContractManager, BoringBatchable {
         shares[id][from] = shares[id][from].sub(totalAmount);
     }
 
+    /// The following functions are purely here to be EIP-1155 compliant. Using these in your protocol is NOT recommended as it opens
+    /// up many attack vectors, such as reentrancy issues and denial of service?
     function safeTransferFrom(
-        address _from,
-        address _to,
-        uint256 _id,
-        uint256 _value,
-        bytes calldata _data
-    ) external {}
+        address from,
+        address to,
+        uint256 id,
+        uint256 share,
+        bytes calldata data
+    ) external {
+        require(from == msg.sender, "BoringBox: Not allowed");
 
-    function safeBatchTransferFrom(
-        address _from,
-        address _to,
-        uint256[] calldata _ids,
-        uint256[] calldata _values,
-        bytes calldata _data
-    ) external {}
+        _transfer(id, from, to, share);
 
-    function balanceOf(address _owner, uint256 _id) external view returns (uint256) {
-        return shares[_id][_owner];
+        if (to.isContract()) {
+            require(
+                ERC1155TokenReceiver(to).onERC1155Received(msg.sender, from, id, share, data) ==
+                    bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)")),
+                "Wrong return value"
+            );
+        }
     }
 
-    function balanceOfBatch(address[] calldata _owners, uint256[] calldata _ids) external view returns (uint256[] memory) {}
+    function safeBatchTransferFrom(
+        address from,
+        address to,
+        uint256[] calldata ids_,
+        uint256[] calldata shares_,
+        bytes calldata data
+    ) external {
+        // Checks
+        require(from == msg.sender, "BoringBox: Not allowed");
 
-    function setApprovalForAll(address _operator, bool _approved) external {}
+        // Effects
+        _batchTransfer(from, to, ids_, shares_);
 
-    function isApprovedForAll(address _owner, address _operator) external view returns (bool) {}
+        if (to.isContract()) {
+            require(
+                ERC1155TokenReceiver(to).onERC1155BatchReceived(msg.sender, from, ids_, shares_, data) ==
+                    bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)")),
+                "Wrong return value"
+            );
+        }
+    }
+
+    function balanceOf(address owner, uint256 id) external view returns (uint256) {
+        return shares[id][owner];
+    }
+
+    function balanceOfBatch(address[] calldata owners, uint256[] calldata ids_) external view returns (uint256[] memory balances) {
+        uint256 len = owners.length;
+        balances = new uint256[](len);
+        for (uint256 i = 0; i < len; i++) {
+            balances[i] = shares[ids_[i]][owners[i]];
+        }
+    }
+
+    mapping(address => mapping(address => bool)) public isApprovedForAll;
+
+    function setApprovalForAll(address operator, bool approved) external {
+        isApprovedForAll[msg.sender][operator] = approved;
+    }
 
     // Contract should be able to receive ETH deposits to support deposit & skim
     // solhint-disable-next-line no-empty-blocks

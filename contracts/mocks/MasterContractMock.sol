@@ -3,17 +3,17 @@
 pragma solidity 0.6.12;
 
 import "@boringcrypto/boring-solidity/contracts/interfaces/IMasterContract.sol";
-import "../BentoBox.sol";
+import "../BoringBox.sol";
 
 contract MasterContractMock is IMasterContract {
-    BentoBox public immutable bentoBox;
+    BoringBox public immutable boringBox;
 
-    constructor(BentoBox _bentoBox) public {
-        bentoBox = _bentoBox;
+    constructor(BoringBox _boringBox) public {
+        boringBox = _boringBox;
     }
 
-    function deposit(IERC20 token, uint256 amount) public {
-        bentoBox.deposit(token, msg.sender, address(this), 0, amount);
+    function deposit(uint256 id, uint256 amount) public {
+        boringBox.deposit(id, msg.sender, address(this), 0, amount);
     }
 
     function init(bytes calldata) external payable override {
