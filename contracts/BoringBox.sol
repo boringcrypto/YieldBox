@@ -19,6 +19,7 @@ pragma experimental ABIEncoderV2;
 import "./interfaces/IWETH.sol";
 import "./interfaces/IStrategy.sol";
 import "./interfaces/IERC1155TokenReceiver.sol";
+import "@boringcrypto/boring-solidity/contracts/libraries/Base64.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringAddress.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
@@ -35,6 +36,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
     using BoringMath for uint256;
     using BoringAddress for address;
     using BoringERC20 for IERC20;
+    using Base64 for bytes;
 
     // ************** //
     // *** EVENTS *** //
@@ -158,43 +160,6 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
         amount = asset.strategy == IStrategy(0) ? asset.token.safeBalanceOf(address(this)) : asset.strategy.currentBalance(asset.token);
     }
 
-    function _transfer(
-        uint256 id,
-        address from,
-        address to,
-        uint256 share
-    ) internal {
-        // Checks
-        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
-
-        // Effects
-        shares[id][from] = shares[id][from].sub(share);
-        shares[id][to] = shares[id][to].add(share);
-
-        emit TransferSingle(msg.sender, from, to, id, share);
-    }
-
-    function _batchTransfer(
-        address from,
-        address to,
-        uint256[] calldata ids_,
-        uint256[] calldata shares_
-    ) internal {
-        // Checks
-        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
-
-        // Effects
-        uint256 len = ids_.length;
-        for (uint256 i = 0; i < len; i++) {
-            uint256 id = ids_[i];
-            uint256 share = shares_[i];
-            shares[id][from] = shares[id][from].sub(share);
-            shares[id][to] = shares[id][to].add(share);
-        }
-
-        emit TransferBatch(msg.sender, from, to, ids_, shares_);
-    }
-
     // ************************ //
     // *** PUBLIC FUNCTIONS *** //
     // ************************ //
@@ -231,7 +196,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
         amount = _toAmount(totalShares[id], _tokenBalanceOf(assets[id]), share, roundUp);
     }
 
-    function registerId(IERC20 token, IStrategy strategy) public returns (uint256 id) {
+    function registerAsset(IERC20 token, IStrategy strategy) public returns (uint256 id) {
         require(ids[token][strategy] > 0, "BoringBox: Already registered");
         assets.push(Asset(token, strategy));
         id = assets.length;
@@ -333,6 +298,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
             token.safeTransfer(to, amount);
         }
         emit LogWithdraw(token, strategy, from, to, amount, share);
+        emit TransferSingle(msg.sender, from, address(0), id, share);
         amountOut = amount;
         shareOut = share;
     }
@@ -342,14 +308,41 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
     /// @param from which user to pull the tokens.
     /// @param to which user to push the tokens.
     /// @param share The amount of `token` in shares.
-    // Clones of master contracts can transfer from any account that has approved them
     function transfer(
         uint256 id,
         address from,
         address to,
         uint256 share
     ) public allowed(from) {
-        _transfer(id, from, to, share);
+        // Checks
+        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
+
+        // Effects
+        shares[id][from] = shares[id][from].sub(share);
+        shares[id][to] = shares[id][to].add(share);
+
+        emit TransferSingle(msg.sender, from, to, id, share);
+    }
+
+    function batchTransfer(
+        address from,
+        address to,
+        uint256[] calldata ids_,
+        uint256[] calldata shares_
+    ) public allowed(from) {
+        // Checks
+        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
+
+        // Effects
+        uint256 len = ids_.length;
+        for (uint256 i = 0; i < len; i++) {
+            uint256 id = ids_[i];
+            uint256 share = shares_[i];
+            shares[id][from] = shares[id][from].sub(share);
+            shares[id][to] = shares[id][to].add(share);
+        }
+
+        emit TransferBatch(msg.sender, from, to, ids_, shares_);
     }
 
     /// @notice Transfer shares from a user account to multiple other ones.
@@ -379,7 +372,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
         shares[id][from] = shares[id][from].sub(totalAmount);
     }
 
-    /// The following functions are purely here to be EIP-1155 compliant. Using these in your protocol is NOT recommended as it opens
+    /// The following safeTransfer functions are purely here to be EIP-1155 compliant. Using these in your protocol is NOT recommended as it opens
     /// up many attack vectors, such as reentrancy issues and denial of service?
     function safeTransferFrom(
         address from,
@@ -388,9 +381,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
         uint256 share,
         bytes calldata data
     ) external {
-        require(from == msg.sender, "BoringBox: Not allowed");
-
-        _transfer(id, from, to, share);
+        transfer(id, from, to, share);
 
         if (to.isContract()) {
             require(
@@ -408,11 +399,8 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
         uint256[] calldata shares_,
         bytes calldata data
     ) external {
-        // Checks
-        require(from == msg.sender, "BoringBox: Not allowed");
-
         // Effects
-        _batchTransfer(from, to, ids_, shares_);
+        batchTransfer(from, to, ids_, shares_);
 
         if (to.isContract()) {
             require(
@@ -478,23 +466,28 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
         // Also, ecrecover returns address(0) on failure. So we check this:
         require(user != address(0), "BoringBox: User cannot be 0");
 
-        bytes32 digest = _getDigest(
-            keccak256(
-                abi.encode(
-                    APPROVAL_SIGNATURE_HASH,
-                    user,
-                    operator,
-                    approved,
-                    nonces[user]++
-                )
-            )
-        );
+        bytes32 digest = _getDigest(keccak256(abi.encode(APPROVAL_SIGNATURE_HASH, user, operator, approved, nonces[user]++)));
         address recoveredAddress = ecrecover(digest, v, r, s);
         require(recoveredAddress == user, "MasterCMgr: Invalid Signature");
 
         // Effects
         isApprovedForAll[user][operator] = approved;
         emit ApprovalForAll(user, operator, approved);
+    }
+
+    function uri(uint256 id) external view returns (string memory) {
+        IERC20 token = assets[id].token;
+        return
+                abi.encodePacked(
+                    '{"name": "',
+                    token.safeName(),
+                    '", "symbol": "',
+                    token.safeSymbol(),
+                    '", "decimals": ',
+                    token.safeDecimals(),
+                    "}"
+                )
+                .encode();
     }
 
     // Contract should be able to receive ETH deposits to support deposit & skim
