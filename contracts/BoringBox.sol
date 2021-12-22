@@ -468,7 +468,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
 
         bytes32 digest = _getDigest(keccak256(abi.encode(APPROVAL_SIGNATURE_HASH, user, operator, approved, nonces[user]++)));
         address recoveredAddress = ecrecover(digest, v, r, s);
-        require(recoveredAddress == user, "MasterCMgr: Invalid Signature");
+        require(recoveredAddress == user, "BoringBox: Invalid Signature");
 
         // Effects
         isApprovedForAll[user][operator] = approved;

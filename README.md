@@ -1,32 +1,36 @@
-# BentoBox
+# BoringBox
 
-[![Coverage Status](https://coveralls.io/repos/github/sushiswap/bentobox/badge.svg?branch=master&service=github)](https://coveralls.io/github/sushiswap/bentobox?branch=master)
+The BoringBox is a token and strategy vault to ease protocol development and add capitol efficiency to any protocol.
 
-Platforms like Compound and Aave allow users to deposit assets as collateral and borrow other assets against this. These protocols have attracted billions of dollars, but they suffer from some major limitations. Taking away these limitations could see much larger adoption. BentoBox aims to do just that.
+## Background
 
-We solve these issues by having a platform with:
+BentoBox is a token vault where the owner can add a strategy for each token to generate extra yield. The Sushi ops team became the owner
+and had the ability to add strategies, but didn't do so until recently. Abracadabra also builds on top of the BentoBox and wanted certain
+startegies turned on, but could not agree with the Sushi team. This caused them to launch their own 'DegenBox'. Since the BentoBox concept
+benefits from a network effect, having multiple defeats the purpose. This points to a clear design flaw. There should be no ownership and
+the strategies used should be picked by te user. This prompted the development of the BoringBox.
 
-- Isolated lending pairs. Anyone can create a pair, it’s up to users which pairs they find safe enough. Risk is isolated to just that pair.
-- Flexible oracles, both on-chain and off-chain.
-  Liquid interest rates based on a specific target utilization range, such as 70-80%.
-- Contracts optimized for low gas.
-- The supplied assets can be used for flash loans, providing extra revenue for suppliers.
-- Strategies can provide additional revenue
+## Changes
+- Completely permissionless design.
+- Support any number of strategies per token. Each token + strategy is an 'asset'.
+- Full automatic support for rebasing tokens. Protocols using BoringBox do not have to worry about rebasing.
+- Full EIP-1155 support, all BoringBox balances are now EIP-1155 tokens.
+- Removed skimming functionality (to support rebasing tokens).
+- Removed flashloan support. This wasn't being used and wasn't as useful in the new design.
 
-## Docs
+## Open design choices
+- Add another level of approvals, similar to ERC20 approvals
+- Support NFTs
+- 
 
-[Development](documentation/DEVELOPMENT.md)
+## Protocol Benefits
+Anyone writing a token based protocol on top of BoringBox gets these benefits
+- Seamless support for rebasing tokens
+- No need to support ETH only WETH as just another token
+- Uniform asset behaviour
 
-[Deployment](documentation/DEPLOYMENT.md)
-
-## Security
-
-An early version was audited by PeckShield and partially by Quantstamp. The thoroughness wasn't overwhelming,
-which led to the creation of an internal audit checklist (see checks.txt in the docs folder).
-
-Contracts are covered 100% by tests.
-
-Formal verification is done using Certora. All reported issues were fixed.
+## User Benefits
+- Enter and change strategies for a minimal gas fee
 
 ## Licence
 
