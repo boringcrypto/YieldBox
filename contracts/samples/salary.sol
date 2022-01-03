@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
-import "../BentoBox.sol";
+import "../BoringBox.sol";
 
 // solhint-disable not-rely-on-time
 
@@ -11,7 +11,7 @@ import "../BentoBox.sol";
 contract Salary is BoringBatchable {
     using BoringMath for uint256;
 
-    BentoBox public bentoBox;
+    BoringBox public bentoBox;
 
     event LogCreate(
         address indexed funder,
@@ -26,20 +26,20 @@ contract Salary is BoringBatchable {
     event LogWithdraw(uint256 indexed salaryId, address indexed to, uint256 shares);
     event LogCancel(uint256 indexed salaryId, address indexed to, uint256 shares);
 
-    constructor(BentoBox _bentoBox) public {
+    constructor(BoringBox _bentoBox) public {
         bentoBox = _bentoBox;
-        _bentoBox.registerProtocol();
     }
 
     // Included to be able to approve BentoBox and create in the same transaction (using batch)
     function setBentoBoxApproval(
         address user,
+        address operator,
         bool approved,
         uint8 v,
         bytes32 r,
         bytes32 s
     ) public {
-        bentoBox.setMasterContractApproval(user, address(this), approved, v, r, s);
+        bentoBox.setApprovalForAllWithPermit(user, operator, approved, v, r, s);
     }
 
     ///     now                      cliffTimestamp
