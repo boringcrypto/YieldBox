@@ -57,12 +57,18 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
     // ******************************** //
 
     IERC20 private immutable wethToken;
-    IERC20 private constant USE_ETHEREUM = IERC20(0);
+
+    uint96 private constant ETH = 0;
+    uint96 private constant EIP20 = 1;
+    uint96 private constant EIP721 = 2;
+    uint96 private constant EIP1155 = 3;
 
     // An asset is a token + a strategy
     struct Asset {
-        IERC20 token;
+        uint96 standard;
+        address token;
         IStrategy strategy;
+        uint256 tokenId;
     }
 
     // ***************** //
@@ -70,10 +76,10 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
     // ***************** //
 
     // ids start at 1 so that id 0 means it's not yet registered
-    mapping(IERC20 => mapping(IStrategy => uint256)) public ids;
+    mapping(uint96 => mapping(address => mapping(IStrategy => mapping(uint256 => uint256)))) public ids;
     Asset[] public assets;
 
-    // Balance per token per strategy per address/contract in shares
+    // Balance per asset per address/contract in shares
     mapping(uint256 => mapping(address => uint256)) public shares;
 
     // Total shares per asset
@@ -85,7 +91,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
 
     constructor(IERC20 wethToken_) public {
         wethToken = wethToken_;
-        assets.push(Asset(IERC20(0), IStrategy(0)));
+        assets.push(Asset(EIP20, address(0), IStrategy(0), 0));
     }
 
     // ***************** //
@@ -157,6 +163,13 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
     /// @dev Returns the total balance of `token` this contracts holds,
     /// plus the total amount this contract thinks the strategy holds.
     function _tokenBalanceOf(Asset memory asset) internal view returns (uint256 amount) {
+        if (asset.strategy == IStrategy(0)) {
+            if (asset.standard == ETH) {
+                asset.token.safeBalanceOf(address(this))
+            }
+        } else {
+            return asset.strategy.currentBalance(asset);
+        }
         amount = asset.strategy == IStrategy(0) ? asset.token.safeBalanceOf(address(this)) : asset.strategy.currentBalance(asset.token);
     }
 
@@ -196,11 +209,13 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
         amount = _toAmount(totalShares[id], _tokenBalanceOf(assets[id]), share, roundUp);
     }
 
-    function registerAsset(IERC20 token, IStrategy strategy) public returns (uint256 id) {
-        require(ids[token][strategy] > 0, "BoringBox: Already registered");
-        assets.push(Asset(token, strategy));
-        id = assets.length;
-        ids[token][strategy] = id;
+    function registerAsset(uint96 standard, IERC20 token, IStrategy strategy, uint256 tokenId) public returns (uint256 id) {
+        id = ids[token][strategy];
+        if (id == 0) {
+            assets.push(Asset(standard, token, strategy, tokenId));
+            id = assets.length;
+            ids[token][strategy] = id;
+        }
     }
 
     /// @notice Deposit an amount of `token` represented in either `amount` or `share`.
@@ -223,11 +238,10 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
 
         // Effects
         Asset memory asset = assets[id];
-        IERC20 token = asset.token == USE_ETHEREUM ? wethToken : asset.token;
-        uint256 totalAmount = _tokenBalanceOf(assets[id]);
+        uint256 totalAmount = _tokenBalanceOf(asset);
 
         // If a new token gets added, the tokenSupply call checks that this is a deployed contract. Needed for security.
-        require(totalAmount != 0 || token.totalSupply() > 0, "BoringBox: No tokens");
+        require(totalAmount != 0 || asset.token.totalSupply() > 0, "BoringBox: No tokens");
         if (share == 0) {
             // value of the share may be lower than the amount due to rounding, that's ok
             share = _toShares(totalShares[id], totalAmount, amount, false);
@@ -241,16 +255,17 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
 
         // Interactions
         // During the first deposit, we check that this token is 'real'
-        //if ()
-        if (asset.token == USE_ETHEREUM) {
+        if (asset.standard == ETH) {
             IWETH(address(wethToken)).deposit{value: amount}();
             if (asset.strategy != IStrategy(0)) {
                 wethToken.safeTransfer(address(asset.strategy), amount);
             }
-        } else if (from != address(this)) {
-            token.safeTransferFrom(from, asset.strategy == IStrategy(0) ? address(this) : address(asset.strategy), amount);
+        } else if (asset.standard == EIP20) {
+            asset.token.safeTransferFrom(from, asset.strategy == IStrategy(0) ? address(this) : address(asset.strategy), amount);
+        } else if (asset.standard == EIP1155) {
+
         }
-        emit LogDeposit(token, asset.strategy, from, to, amount, share);
+        emit LogDeposit(asset.token, asset.strategy, from, to, amount, share);
         emit TransferSingle(msg.sender, address(0), to, id, share);
         amountOut = amount;
         shareOut = share;
@@ -264,7 +279,6 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
     /// @param share Like above, but `share` takes precedence over `amount`.
     function withdraw(
         uint256 id,
-        IStrategy strategy,
         address from,
         address to,
         uint256 amount,
@@ -275,7 +289,6 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
 
         // Effects
         Asset memory asset = assets[id];
-        IERC20 token = asset.token == USE_ETHEREUM ? wethToken : asset.token;
         uint256 totalAmount = _tokenBalanceOf(asset);
         if (share == 0) {
             // value of the share paid could be lower than the amount paid due to rounding, in that case, add a share (Always round up)
@@ -286,18 +299,18 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
         }
 
         shares[id][from] = shares[id][from].sub(share);
-        totalShares[id] = totalShares[id].sub(share.to128());
+        totalShares[id] = totalShares[id].sub(share);
 
         // Interactions
-        if (asset.token == USE_ETHEREUM) {
+        if (asset.standard == ETH) {
             IWETH(address(wethToken)).withdraw(amount);
             // solhint-disable-next-line avoid-low-level-calls
             (bool success, ) = to.call{value: amount}("");
             require(success, "BoringBox: ETH transfer failed");
         } else {
-            token.safeTransfer(to, amount);
+            asset.token.safeTransfer(to, amount);
         }
-        emit LogWithdraw(token, strategy, from, to, amount, share);
+        emit LogWithdraw(asset.token, asset.strategy, from, to, amount, share);
         emit TransferSingle(msg.sender, from, address(0), id, share);
         amountOut = amount;
         shareOut = share;
@@ -489,8 +502,4 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
                 )
                 .encode();
     }
-
-    // Contract should be able to receive ETH deposits to support deposit & skim
-    // solhint-disable-next-line no-empty-blocks
-    receive() external payable {}
 }
