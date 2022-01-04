@@ -18,6 +18,7 @@ pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 import "./interfaces/IWETH.sol";
 import "./interfaces/IStrategy.sol";
+import "./interfaces/IERC1155.sol";
 import "./interfaces/IERC1155TokenReceiver.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/Base64.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
@@ -32,7 +33,7 @@ import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 /// @notice The BoringBox is a vault for tokens. The stored tokens can assigned to strategies.
 /// Yield from this will go to the token depositors.
 /// Any funds transfered directly onto the BoringBox will be lost, use the deposit function instead.
-contract BoringBox is Domain, BoringBatchable, BoringFactory {
+contract BoringBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiver {
     using BoringMath for uint256;
     using BoringAddress for address;
     using BoringERC20 for IERC20;
@@ -63,13 +64,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
     uint96 private constant EIP721 = 2;
     uint96 private constant EIP1155 = 3;
 
-    // An asset is a token + a strategy
-    struct Asset {
-        uint96 standard;
-        address token;
-        IStrategy strategy;
-        uint256 tokenId;
-    }
+    address private constant USE_ETHEREUM = address(0);
 
     // ***************** //
     // *** VARIABLES *** //
@@ -165,12 +160,15 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
     function _tokenBalanceOf(Asset memory asset) internal view returns (uint256 amount) {
         if (asset.strategy == IStrategy(0)) {
             if (asset.standard == ETH) {
-                asset.token.safeBalanceOf(address(this))
+                return IERC20(asset.token).safeBalanceOf(address(this));
+            } else if (asset.standard == EIP20) {
+                return IERC20(asset.token).safeBalanceOf(address(this));
+            } else if (asset.standard == EIP1155) {
+                return IERC1155(asset.token).
             }
         } else {
             return asset.strategy.currentBalance(asset);
         }
-        amount = asset.strategy == IStrategy(0) ? asset.token.safeBalanceOf(address(this)) : asset.strategy.currentBalance(asset.token);
     }
 
     // ************************ //
@@ -209,12 +207,12 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
         amount = _toAmount(totalShares[id], _tokenBalanceOf(assets[id]), share, roundUp);
     }
 
-    function registerAsset(uint96 standard, IERC20 token, IStrategy strategy, uint256 tokenId) public returns (uint256 id) {
-        id = ids[token][strategy];
+    function registerAsset(uint96 standard, address token, IStrategy strategy, uint256 tokenId) public returns (uint256 id) {
+        id = ids[standard][token][strategy][tokenId];
         if (id == 0) {
             assets.push(Asset(standard, token, strategy, tokenId));
             id = assets.length;
-            ids[token][strategy] = id;
+            ids[standard][token][strategy][tokenId] = id;
         }
     }
 
@@ -241,7 +239,12 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
         uint256 totalAmount = _tokenBalanceOf(asset);
 
         // If a new token gets added, the tokenSupply call checks that this is a deployed contract. Needed for security.
-        require(totalAmount != 0 || asset.token.totalSupply() > 0, "BoringBox: No tokens");
+        if (totalAmount == 0) {
+            if (asset.standard == EIP20) {
+                require(IERC20(asset.token).totalSupply() > 0, "BoringBox: No tokens");
+            }
+        }
+
         if (share == 0) {
             // value of the share may be lower than the amount due to rounding, that's ok
             share = _toShares(totalShares[id], totalAmount, amount, false);
@@ -256,16 +259,19 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
         // Interactions
         // During the first deposit, we check that this token is 'real'
         if (asset.standard == ETH) {
-            IWETH(address(wethToken)).deposit{value: amount}();
-            if (asset.strategy != IStrategy(0)) {
-                wethToken.safeTransfer(address(asset.strategy), amount);
-            }
         } else if (asset.standard == EIP20) {
-            asset.token.safeTransferFrom(from, asset.strategy == IStrategy(0) ? address(this) : address(asset.strategy), amount);
+            if (asset.token == USE_ETHEREUM) {
+                IWETH(address(wethToken)).deposit{value: amount}();
+                if (asset.strategy != IStrategy(0)) {
+                    wethToken.safeTransfer(address(asset.strategy), amount);
+                }
+            } else {
+                IERC20(asset.token).safeTransferFrom(from, asset.strategy == IStrategy(0) ? address(this) : address(asset.strategy), amount);
+            }
         } else if (asset.standard == EIP1155) {
 
         }
-        emit LogDeposit(asset.token, asset.strategy, from, to, amount, share);
+        emit LogDeposit(IERC20(asset.token), asset.strategy, from, to, amount, share);
         emit TransferSingle(msg.sender, address(0), to, id, share);
         amountOut = amount;
         shareOut = share;
@@ -308,9 +314,9 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
             (bool success, ) = to.call{value: amount}("");
             require(success, "BoringBox: ETH transfer failed");
         } else {
-            asset.token.safeTransfer(to, amount);
+            IERC20(asset.token).safeTransfer(to, amount);
         }
-        emit LogWithdraw(asset.token, asset.strategy, from, to, amount, share);
+        emit LogWithdraw(IERC20(asset.token), asset.strategy, from, to, amount, share);
         emit TransferSingle(msg.sender, from, address(0), id, share);
         amountOut = amount;
         shareOut = share;
@@ -489,7 +495,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
     }
 
     function uri(uint256 id) external view returns (string memory) {
-        IERC20 token = assets[id].token;
+        IERC20 token = IERC20(assets[id].token);
         return
                 abi.encodePacked(
                     '{"name": "',
@@ -501,5 +507,20 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory {
                     "}"
                 )
                 .encode();
+    }
+
+    // ERC1155 bloat we have to include to be able to receive ERC1155 tokens.
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external override returns (bytes4) {
+        return bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"));
+    }
+
+    function onERC1155BatchReceived(
+        address,
+        address,
+        uint256[] calldata,
+        uint256[] calldata,
+        bytes calldata
+    ) external override returns (bytes4) {
+        return bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
     }
 }

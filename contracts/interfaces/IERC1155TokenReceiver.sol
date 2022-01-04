@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+pragma solidity 0.6.12;
+
 interface IERC1155TokenReceiver {
     function onERC1155Received(
         address _operator,

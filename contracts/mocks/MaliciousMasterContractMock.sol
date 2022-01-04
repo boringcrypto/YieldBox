@@ -9,6 +9,6 @@ contract MaliciousMasterContractMock is IMasterContract {
     }
 
     function attack(BoringBox bentoBox) public {
-        bentoBox.setMasterContractApproval(address(this), address(this), true, 0, 0, 0);
+        bentoBox.setApprovalForAll(address(this), true);
     }
 }

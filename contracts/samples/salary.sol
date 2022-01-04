@@ -16,7 +16,7 @@ contract Salary is BoringBatchable {
     event LogCreate(
         address indexed funder,
         address indexed recipient,
-        IERC20 indexed token,
+        uint256 indexed assetId,
         uint32 cliffTimestamp,
         uint32 endTimestamp,
         uint32 cliffPercent,
@@ -60,7 +60,7 @@ contract Salary is BoringBatchable {
         // The recipient of the salary
         address recipient;
         // The ERC20 token
-        IERC20 token;
+        uint256 assetId;
         // The amount of shares that the recipient has already withdrawn
         uint256 withdrawnShares;
         // The timestamp of the cliff (also the start of the slope)
@@ -79,13 +79,12 @@ contract Salary is BoringBatchable {
     address[] public funder;
 
     uint8 private constant MODE_BENTO = 0; // Use BentoBox balance
-    uint8 private constant MODE_ERC20_SKIM = 1; // Use ERC20 tokens deposited onto the BentoBox contract
     uint8 private constant MODE_ERC20 = 2; // Use ERC20 tokens in the users wallet (transferFrom with approval)
 
     /// Create a salary
     function create(
         address recipient,
-        IERC20 token,
+        uint256 assetId,
         uint32 cliffTimestamp,
         uint32 endTimestamp,
         uint32 cliffPercent,
@@ -100,19 +99,19 @@ contract Salary is BoringBatchable {
 
         if (mode == MODE_BENTO) {
             // Fund this salary using the funder's BentoBox balance. Convert the amoutn to shares, then transfer the shares
-            shares = bentoBox.toShare(token, amount, false);
-            bentoBox.transfer(token, msg.sender, address(this), shares);
+            shares = bentoBox.toShare(assetId, amount, false);
+            bentoBox.transfer(assetId, msg.sender, address(this), shares);
         } else {
             // Fund this salary with ERC20 tokens
             // This is a potential reentrancy target, funds in this contract could be higher than the total of salaries during this call
             // Since this contract doesn't have a skim function, this is ok
-            (, shares) = bentoBox.deposit(token, mode == MODE_ERC20_SKIM ? address(bentoBox) : msg.sender, address(this), amount, 0);
+            (, shares) = bentoBox.deposit(assetId, msg.sender, address(this), amount, 0);
         }
 
         salaryId = salaries.length;
         UserSalary memory salary;
         salary.recipient = recipient;
-        salary.token = token;
+        salary.assetId = assetId;
         salary.cliffTimestamp = cliffTimestamp;
         salary.endTimestamp = endTimestamp;
         salary.cliffPercent = cliffPercent;
@@ -120,7 +119,7 @@ contract Salary is BoringBatchable {
         salaries.push(salary);
         funder.push(msg.sender);
 
-        emit LogCreate(msg.sender, recipient, token, cliffTimestamp, endTimestamp, cliffPercent, shares.to128(), salaryId);
+        emit LogCreate(msg.sender, recipient, assetId, cliffTimestamp, endTimestamp, cliffPercent, shares.to128(), salaryId);
     }
 
     function _available(UserSalary memory salary) internal view returns (uint256 shares) {
@@ -174,9 +173,9 @@ contract Salary is BoringBatchable {
         uint256 pendingShares = _available(salary);
         salaries[salaryId].withdrawnShares = salary.withdrawnShares.add(pendingShares);
         if (toBentoBox) {
-            bentoBox.transfer(salary.token, address(this), to, pendingShares);
+            bentoBox.transfer(salary.assetId, address(this), to, pendingShares);
         } else {
-            bentoBox.withdraw(salary.token, address(this), to, 0, pendingShares);
+            bentoBox.withdraw(salary.assetId, address(this), to, 0, pendingShares);
         }
         emit LogWithdraw(salaryId, to, pendingShares);
     }
@@ -195,9 +194,9 @@ contract Salary is BoringBatchable {
     ) public onlyFunder(salaryId) {
         uint256 sharesLeft = uint256(salaries[salaryId].shares).sub(salaries[salaryId].withdrawnShares);
         if (toBentoBox) {
-            bentoBox.transfer(salaries[salaryId].token, address(this), to, sharesLeft);
+            bentoBox.transfer(salaries[salaryId].assetId, address(this), to, sharesLeft);
         } else {
-            bentoBox.withdraw(salaries[salaryId].token, address(this), to, 0, sharesLeft);
+            bentoBox.withdraw(salaries[salaryId].assetId, address(this), to, 0, sharesLeft);
         }
         emit LogCancel(salaryId, to, sharesLeft);
     }
