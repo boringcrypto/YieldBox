@@ -28,6 +28,14 @@ import "@boringcrypto/boring-solidity/contracts/Domain.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 
+// An asset is a token + a strategy
+struct Asset {
+    uint96 standard;
+    address contractAddress;
+    IStrategy strategy;
+    uint256 tokenId;
+}
+
 /// @title YieldBox
 /// @author BoringCrypto, Keno
 /// @notice The YieldBox is a vault for tokens. The stored tokens can assigned to strategies.
@@ -348,9 +356,10 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
         // Checks
         require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
+        Asset memory asset = assets[id];
+        require(asset.standard == EIP20 && IERC20(asset.contractAddress) == wethToken, "YieldBox: not WETH");
 
         // Effects
-        Asset memory asset = assets[id];
         uint256 totalAmount = _tokenBalanceOf(asset);
         if (share == 0) {
             // value of the share paid could be lower than the amount paid due to rounding, in that case, add a share (Always round up)
