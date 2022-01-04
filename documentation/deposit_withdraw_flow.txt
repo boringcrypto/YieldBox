@@ -1,0 +1,69 @@
+Deposit
+=======
+
+## ETH without strategy
+- Call depositETH with msg.value
+- ETH is on YieldBox and it's the only ETH there
+- ETH gets turned into WETH
+- WETH stays on YieldBox increasing the total balance on there
+
+## ETH with strategy
+- Call depositETH with msg.value
+- ETH is on YieldBox and it's the only ETH there
+- ETH gets turned into WETH
+- WETH gets sent to strategy
+- YieldBox calls deposited on strategy
+
+## ERC20 without strategy
+- user approves ERC20 token for YieldBox
+- call deposit
+- transferFrom pulls in the tokens increasing the total balance on the YieldBox
+
+## ERC20 with strategy
+- user approves ERC20 token for YieldBox
+- call deposit
+- transferFrom pulls the tokens directly onto the strategy
+- YieldBox calls deposited on strategy
+
+## ERC1155 without strategy
+- user approves YieldBox as operator for the ERC1155 contract
+- call deposit
+- safeTransferFrom pulls in the tokens increasing the total balance on the YieldBox
+- the ERC1155 contract calls the OnReceived, which is ignored
+
+## ERC1155 with strategy
+- user approves YieldBox as operator for the ERC1155 contract
+- call deposit
+- safeTransferFrom pulls the tokens directly onto the strategy
+- the ERC1155 contract calls the OnReceived, which is ignored
+- YieldBox calls deposited on strategy
+
+Withdraw
+========
+
+## ETH without strategy
+- call withdrawETH
+- WETH gets turned into ETH
+- Now there's ETH sitting on YieldBox
+- This ETH is sent to the user
+
+## ETH with strategy
+- call withdrawETH
+- YieldBox calls withdrawETH on the strategy
+- Strategy delivers the ETH to the user (or not)
+
+## ERC20 without strategy
+- call withdraw
+- Use transfer to sent tokens from YieldBox to user
+
+## ERC20 with strategy
+- call withdraw
+- YieldBox calls withdraw on strategy, delivers directly to user
+
+## ERC1155 without strategy
+- call withdraw
+- Use safeTransferFrom to sent tokens from YieldBox to user
+
+## ERC1155 with strategy
+- call withdraw
+- YieldBox calls withdraw on strategy, delivers directly to user

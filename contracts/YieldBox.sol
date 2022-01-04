@@ -59,12 +59,9 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
 
     IERC20 private immutable wethToken;
 
-    uint96 private constant ETH = 0;
-    uint96 private constant EIP20 = 1;
-    uint96 private constant EIP721 = 2;
-    uint96 private constant EIP1155 = 3;
-
-    address private constant USE_ETHEREUM = address(0);
+    uint96 private constant EIP20 = 0;
+    uint96 private constant EIP721 = 1;
+    uint96 private constant EIP1155 = 2;
 
     // ***************** //
     // *** VARIABLES *** //
@@ -159,15 +156,13 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     /// plus the total amount this contract thinks the strategy holds.
     function _tokenBalanceOf(Asset memory asset) internal view returns (uint256 amount) {
         if (asset.strategy == IStrategy(0)) {
-            if (asset.standard == ETH) {
-                return IERC20(asset.token).safeBalanceOf(address(this));
-            } else if (asset.standard == EIP20) {
-                return IERC20(asset.token).safeBalanceOf(address(this));
+            if (asset.standard == EIP20) {
+                return IERC20(asset.contractAddress).safeBalanceOf(address(this));
             } else if (asset.standard == EIP1155) {
-                return IERC1155(asset.token).
+                return IERC1155(asset.contractAddress).balanceOf(address(this), asset.tokenId);
             }
         } else {
-            return asset.strategy.currentBalance(asset);
+            return asset.strategy.currentBalance();
         }
     }
 
@@ -182,42 +177,47 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     }
 
     /// @dev Helper function to represent an `amount` of `token` in shares.
-    /// @param id The id of the asset.
+    /// @param assetId The id of the asset.
     /// @param amount The `token` amount.
     /// @param roundUp If the result `share` should be rounded up.
     /// @return share The token amount represented in shares.
     function toShare(
-        uint256 id,
+        uint256 assetId,
         uint256 amount,
         bool roundUp
     ) external view returns (uint256 share) {
-        share = _toShares(totalShares[id], _tokenBalanceOf(assets[id]), amount, roundUp);
+        share = _toShares(totalShares[assetId], _tokenBalanceOf(assets[assetId]), amount, roundUp);
     }
 
     /// @dev Helper function represent shares back into the `token` amount.
-    /// @param id The id of the asset.
+    /// @param assetId The id of the asset.
     /// @param share The amount of shares.
     /// @param roundUp If the result should be rounded up.
     /// @return amount The share amount back into native representation.
     function toAmount(
-        uint256 id,
+        uint256 assetId,
         uint256 share,
         bool roundUp
     ) external view returns (uint256 amount) {
-        amount = _toAmount(totalShares[id], _tokenBalanceOf(assets[id]), share, roundUp);
+        amount = _toAmount(totalShares[assetId], _tokenBalanceOf(assets[assetId]), share, roundUp);
     }
 
-    function registerAsset(uint96 standard, address token, IStrategy strategy, uint256 tokenId) public returns (uint256 id) {
-        id = ids[standard][token][strategy][tokenId];
+    function registerAsset(uint96 standard, address contractAddress, IStrategy strategy, uint256 tokenId) public returns (uint256 id) {
+        // Checks
+        require(tokenId == 0 || standard != EIP20, "YieldBox: No tokenId for ERC20");
+        require(strategy == IStrategy(0) || (standard == strategy.standard() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()), "YieldBox: Strategy mismatch");
+
+        // Effects
+        id = ids[standard][contractAddress][strategy][tokenId];
         if (id == 0) {
-            assets.push(Asset(standard, token, strategy, tokenId));
+            assets.push(Asset(standard, contractAddress, strategy, tokenId));
             id = assets.length;
-            ids[standard][token][strategy][tokenId] = id;
+            ids[standard][contractAddress][strategy][tokenId] = id;
         }
     }
 
     /// @notice Deposit an amount of `token` represented in either `amount` or `share`.
-    /// @param id The id of the asset.
+    /// @param assetId The id of the asset.
     /// @param from which account to pull the tokens.
     /// @param to which account to push the tokens.
     /// @param amount Token amount in native representation to deposit.
@@ -225,54 +225,72 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     /// @return amountOut The amount deposited.
     /// @return shareOut The deposited amount repesented in shares.
     function deposit(
-        uint256 id,
+        uint256 assetId,
         address from,
         address to,
         uint256 amount,
         uint256 share
-    ) public payable allowed(from) returns (uint256 amountOut, uint256 shareOut) {
+    ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
         // Checks
         require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
 
         // Effects
-        Asset memory asset = assets[id];
+        Asset memory asset = assets[assetId];
         uint256 totalAmount = _tokenBalanceOf(asset);
 
         // If a new token gets added, the tokenSupply call checks that this is a deployed contract. Needed for security.
         if (totalAmount == 0) {
             if (asset.standard == EIP20) {
-                require(IERC20(asset.token).totalSupply() > 0, "YieldBox: No tokens");
+                require(IERC20(asset.contractAddress).totalSupply() > 0, "YieldBox: No tokens");
             }
         }
 
         if (share == 0) {
             // value of the share may be lower than the amount due to rounding, that's ok
-            share = _toShares(totalShares[id], totalAmount, amount, false);
+            share = _toShares(totalShares[assetId], totalAmount, amount, false);
         } else {
             // amount may be lower than the value of share due to rounding, in that case, add 1 to amount (Always round up)
-            amount = _toAmount(totalShares[id], totalAmount, share, true);
+            amount = _toAmount(totalShares[assetId], totalAmount, share, true);
         }
 
-        shares[id][to] = shares[id][to].add(share);
-        totalShares[id] = totalShares[id].add(share);
+        shares[assetId][to] = shares[assetId][to].add(share);
+        totalShares[assetId] = totalShares[assetId].add(share);
 
         // Interactions
-        // During the first deposit, we check that this token is 'real'
-        if (asset.standard == ETH) {
-        } else if (asset.standard == EIP20) {
-            if (asset.token == USE_ETHEREUM) {
-                IWETH(address(wethToken)).deposit{value: amount}();
-                if (asset.strategy != IStrategy(0)) {
-                    wethToken.safeTransfer(address(asset.strategy), amount);
-                }
-            } else {
-                IERC20(asset.token).safeTransferFrom(from, asset.strategy == IStrategy(0) ? address(this) : address(asset.strategy), amount);
-            }
+        if (asset.standard == EIP20) {
+            IERC20(asset.contractAddress).safeTransferFrom(from, asset.strategy == IStrategy(0) ? address(this) : address(asset.strategy), amount);
         } else if (asset.standard == EIP1155) {
-
+            IERC1155(asset.contractAddress).safeTransferFrom(from, asset.strategy == IStrategy(0) ? address(this) : address(asset.strategy), asset.tokenId, amount, "");
         }
-        emit LogDeposit(IERC20(asset.token), asset.strategy, from, to, amount, share);
-        emit TransferSingle(msg.sender, address(0), to, id, share);
+        emit LogDeposit(IERC20(asset.contractAddress), asset.strategy, from, to, amount, share);
+        emit TransferSingle(msg.sender, address(0), to, assetId, share);
+        amountOut = amount;
+        shareOut = share;
+    }
+
+    function depositETH(
+        uint256 assetId,
+        address to
+    ) public payable returns (uint256 amountOut, uint256 shareOut) {
+        // Checks
+        require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
+        Asset memory asset = assets[assetId];
+        require(asset.standard == EIP20 && IERC20(asset.contractAddress) == wethToken, "YieldBox: not WETH");
+
+        // Effects
+        uint256 amount = msg.value;
+        uint256 share = _toShares(totalShares[assetId], _tokenBalanceOf(asset), amount, false);
+
+        shares[assetId][to] = shares[assetId][to].add(share);
+        totalShares[assetId] = totalShares[assetId].add(share);
+
+        // Interactions
+        IWETH(address(wethToken)).deposit{value: amount}();
+        if (asset.strategy != IStrategy(0)) {
+            wethToken.safeTransfer(address(asset.strategy), amount);
+        }
+        emit LogDeposit(IERC20(asset.contractAddress), asset.strategy, msg.sender, to, amount, share);
+        emit TransferSingle(msg.sender, address(0), to, assetId, share);
         amountOut = amount;
         shareOut = share;
     }
@@ -308,19 +326,57 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         totalShares[id] = totalShares[id].sub(share);
 
         // Interactions
-        if (asset.standard == ETH) {
-            IWETH(address(wethToken)).withdraw(amount);
-            // solhint-disable-next-line avoid-low-level-calls
-            (bool success, ) = to.call{value: amount}("");
-            require(success, "YieldBox: ETH transfer failed");
+        if (asset.strategy != IStrategy(0)) {
+            if (asset.standard == EIP20) {
+                IERC20(asset.contractAddress).safeTransfer(to, amount);
+            }
         } else {
-            IERC20(asset.token).safeTransfer(to, amount);
+
         }
-        emit LogWithdraw(IERC20(asset.token), asset.strategy, from, to, amount, share);
+        emit LogWithdraw(IERC20(asset.contractAddress), asset.strategy, from, to, amount, share);
         emit TransferSingle(msg.sender, from, address(0), id, share);
         amountOut = amount;
         shareOut = share;
     }
+
+    function withdrawETH(
+        uint256 id,
+        address from,
+        address to,
+        uint256 amount,
+        uint256 share
+    ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
+        // Checks
+        require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
+
+        // Effects
+        Asset memory asset = assets[id];
+        uint256 totalAmount = _tokenBalanceOf(asset);
+        if (share == 0) {
+            // value of the share paid could be lower than the amount paid due to rounding, in that case, add a share (Always round up)
+            share = _toShares(totalShares[id], totalAmount, amount, true);
+        } else {
+            // amount may be lower than the value of share due to rounding, that's ok
+            amount = _toAmount(totalShares[id], totalAmount, share, false);
+        }
+
+        shares[id][from] = shares[id][from].sub(share);
+        totalShares[id] = totalShares[id].sub(share);
+
+        // Interactions
+        if (asset.strategy != IStrategy(0)) {
+        }
+
+        IWETH(address(wethToken)).withdraw(amount);
+        // solhint-disable-next-line avoid-low-level-calls
+        (bool success, ) = to.call{value: amount}("");
+        require(success, "YieldBox: ETH transfer failed");
+
+        emit LogWithdraw(IERC20(asset.contractAddress), asset.strategy, from, to, amount, share);
+        emit TransferSingle(msg.sender, from, address(0), id, share);
+        amountOut = amount;
+        shareOut = share;
+    }    
 
     /// @notice Transfer shares from a user account to another one.
     /// @param id The id of the asset.
@@ -376,7 +432,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         uint256[] calldata share
     ) public allowed(from) {
         // Checks
-        require(tos[0] != address(0), "YieldBox: to[0] not set"); // To avoid a bad UI from burning funds
+        require(tos[0] != address(0), "YieldBox: tos[0] not set"); // To avoid a bad UI from burning funds
 
         // Effects
         uint256 totalAmount;
@@ -428,6 +484,11 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
                 "Wrong return value"
             );
         }
+    }
+
+    // TODO: Add a function to switch strategies
+    function move(address from, address to, uint256 fromAssetId, uint256 toAssetId, uint256 share) public allowed(from) {
+
     }
 
     function balanceOf(address owner, uint256 id) external view returns (uint256) {
@@ -495,12 +556,14 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     }
 
     function uri(uint256 id) external view returns (string memory) {
-        IERC20 token = IERC20(assets[id].token);
+        // TODO: Support EIP1155
+        // TODO: Add strategy info
+        IERC20 token = IERC20(assets[id].contractAddress);
         return
                 abi.encodePacked(
                     '{"name": "',
                     token.safeName(),
-                    '", "symbol": "',
+                    '", "symbol": "', // properties
                     token.safeSymbol(),
                     '", "decimals": ',
                     token.safeDecimals(),
