@@ -8,7 +8,7 @@
 */
 using DummyERC20A as tokenInstance 
 // The contract that reveives back tokens from the strategy 
-// usually it is the bentobox
+// usually it is the YieldBox
 using Receiver as receiverInstance
 using Owner as ownerInstance
 
@@ -61,7 +61,7 @@ definition MAX_INT() returns int256 = 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF
 definition MIN_INT() returns int256 = 0x8000000000000000000000000000000000000000000000000000000000000000;
 
 /*
-At any given time, except during function execution, the CompoundStrategy contract doesn’t hold any tokens, all are invested in the Compound protocol or passed back to BentoBox.
+At any given time, except during function execution, the CompoundStrategy contract doesn’t hold any tokens, all are invested in the Compound protocol or passed back to YieldBox.
 */
 rule allTokensAreInvested(uint256 amount, address to, bytes data) {
 	env e;
@@ -112,7 +112,7 @@ rule ifExitedIsTrueThenMethodsRevertExceptOwner() {
 	assert(lastReverted, "Methods didn't revert");
 }
 
-/* Transfers excess tokens above balance. On a positive profit, BentoBox’s balance increases and the return value is the profit above balance. On negative profit, the negative profit is returned. */
+/* Transfers excess tokens above balance. On a positive profit, YieldBox's balance increases and the return value is the profit above balance. On negative profit, the negative profit is returned. */
 rule integrityHarvest(uint256 balance, uint256 strategyBalanceBefore) {
 	require receiver() == receiverInstance;
 	env e;
@@ -132,7 +132,7 @@ rule integrityHarvest(uint256 balance, uint256 strategyBalanceBefore) {
 	}
 }
 
-/* A withdraw operation increases the BentoBox’s balance by the withdrawn amount */
+/* A withdraw operation increases the YieldBox’s balance by the withdrawn amount */
 rule integrityWithdraw(uint256 amount, uint256 balance) {
 	require receiver() == receiverInstance;
 	env e;
@@ -148,7 +148,7 @@ rule integrityWithdraw(uint256 amount, uint256 balance) {
 	assert balanceAfter == balanceBefore + amountAdded, "wrong balance transfered to receiver";
 }
 
-/* The exit operation transfers all of the strategy's assets to BentoBox */
+/* The exit operation transfers all of the strategy's assets to YieldBox */
 rule integrityExit(uint256 balance) {
 	require receiver() == receiverInstance;
 	env e;

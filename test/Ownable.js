@@ -6,7 +6,7 @@ let cmd, fixture
 describe("Ownable", function () {
     before(async function () {
         fixture = await createFixture(deployments, this, async (cmd) => {
-            await cmd.deploy("ownable", "BentoBoxMock", ADDRESS_ZERO)
+            await cmd.deploy("ownable", "YieldBoxMock", ADDRESS_ZERO)
         })
     })
 

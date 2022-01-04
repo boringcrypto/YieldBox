@@ -9,7 +9,7 @@
 */
 using DummyERC20A as tokenInstance 
 // The contract that reveives back tokens from the strategy 
-// usually it is the bentobox
+// usually it is the YieldBox
 using Receiver as receiverInstance
 
 /*

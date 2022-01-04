@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
-import "../BoringBox.sol";
+import "../YieldBox.sol";
 
 // solhint-disable not-rely-on-time
 
@@ -11,7 +11,7 @@ import "../BoringBox.sol";
 contract Salary is BoringBatchable {
     using BoringMath for uint256;
 
-    BoringBox public bentoBox;
+    YieldBox public yieldBox;
 
     event LogCreate(
         address indexed funder,
@@ -26,12 +26,12 @@ contract Salary is BoringBatchable {
     event LogWithdraw(uint256 indexed salaryId, address indexed to, uint256 shares);
     event LogCancel(uint256 indexed salaryId, address indexed to, uint256 shares);
 
-    constructor(BoringBox _bentoBox) public {
-        bentoBox = _bentoBox;
+    constructor(YieldBox _yieldBox) public {
+        yieldBox = _yieldBox;
     }
 
-    // Included to be able to approve BentoBox and create in the same transaction (using batch)
-    function setBentoBoxApproval(
+    // Included to be able to approve YieldBox and create in the same transaction (using batch)
+    function setYieldBoxApproval(
         address user,
         address operator,
         bool approved,
@@ -39,7 +39,7 @@ contract Salary is BoringBatchable {
         bytes32 r,
         bytes32 s
     ) public {
-        bentoBox.setApprovalForAllWithPermit(user, operator, approved, v, r, s);
+        yieldBox.setApprovalForAllWithPermit(user, operator, approved, v, r, s);
     }
 
     ///     now                      cliffTimestamp
@@ -78,7 +78,7 @@ contract Salary is BoringBatchable {
     /// The funder of each salary, separated out for gas optimization
     address[] public funder;
 
-    uint8 private constant MODE_BENTO = 0; // Use BentoBox balance
+    uint8 private constant MODE_YIELDBOX = 0; // Use YieldBox balance
     uint8 private constant MODE_ERC20 = 2; // Use ERC20 tokens in the users wallet (transferFrom with approval)
 
     /// Create a salary
@@ -97,15 +97,15 @@ contract Salary is BoringBatchable {
         // You cannot have a cliff greater than 100%, important check, without the contract will lose funds
         require(cliffPercent <= 1e18, "Salary: cliff too large");
 
-        if (mode == MODE_BENTO) {
-            // Fund this salary using the funder's BentoBox balance. Convert the amoutn to shares, then transfer the shares
-            shares = bentoBox.toShare(assetId, amount, false);
-            bentoBox.transfer(assetId, msg.sender, address(this), shares);
+        if (mode == MODE_YIELDBOX) {
+            // Fund this salary using the funder's YieldBox balance. Convert the amoutn to shares, then transfer the shares
+            shares = yieldBox.toShare(assetId, amount, false);
+            yieldBox.transfer(assetId, msg.sender, address(this), shares);
         } else {
             // Fund this salary with ERC20 tokens
             // This is a potential reentrancy target, funds in this contract could be higher than the total of salaries during this call
             // Since this contract doesn't have a skim function, this is ok
-            (, shares) = bentoBox.deposit(assetId, msg.sender, address(this), amount, 0);
+            (, shares) = yieldBox.deposit(assetId, msg.sender, address(this), amount, 0);
         }
 
         salaryId = salaries.length;
@@ -164,7 +164,7 @@ contract Salary is BoringBatchable {
     function withdraw(
         uint256 salaryId,
         address to,
-        bool toBentoBox
+        bool toYieldBox
     ) public {
         UserSalary memory salary = salaries[salaryId];
         // Only pay out to the recipient
@@ -172,10 +172,10 @@ contract Salary is BoringBatchable {
 
         uint256 pendingShares = _available(salary);
         salaries[salaryId].withdrawnShares = salary.withdrawnShares.add(pendingShares);
-        if (toBentoBox) {
-            bentoBox.transfer(salary.assetId, address(this), to, pendingShares);
+        if (toYieldBox) {
+            yieldBox.transfer(salary.assetId, address(this), to, pendingShares);
         } else {
-            bentoBox.withdraw(salary.assetId, address(this), to, 0, pendingShares);
+            yieldBox.withdraw(salary.assetId, address(this), to, 0, pendingShares);
         }
         emit LogWithdraw(salaryId, to, pendingShares);
     }
@@ -190,13 +190,13 @@ contract Salary is BoringBatchable {
     function cancel(
         uint256 salaryId,
         address to,
-        bool toBentoBox
+        bool toYieldBox
     ) public onlyFunder(salaryId) {
         uint256 sharesLeft = uint256(salaries[salaryId].shares).sub(salaries[salaryId].withdrawnShares);
-        if (toBentoBox) {
-            bentoBox.transfer(salaries[salaryId].assetId, address(this), to, sharesLeft);
+        if (toYieldBox) {
+            yieldBox.transfer(salaries[salaryId].assetId, address(this), to, sharesLeft);
         } else {
-            bentoBox.withdraw(salaries[salaryId].assetId, address(this), to, 0, sharesLeft);
+            yieldBox.withdraw(salaries[salaryId].assetId, address(this), to, 0, sharesLeft);
         }
         emit LogCancel(salaryId, to, sharesLeft);
     }

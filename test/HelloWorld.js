@@ -9,9 +9,9 @@ describe("HelloWorld", function () {
     before(async function () {
         fixture = await createFixture(deployments, this, async (cmd) => {
             await cmd.deploy("weth9", "WETH9Mock")
-            await cmd.deploy("bentoBox", "BentoBoxMock", this.weth9.address)
+            await cmd.deploy("yieldBox", "YieldBoxMock", this.weth9.address)
             await cmd.addToken("tokenA", "Token A", "A", 18, this.ReturnFalseERC20Mock)
-            await cmd.deploy("helloWorld", "HelloWorld", this.bentoBox.address, this.tokenA.address)
+            await cmd.deploy("helloWorld", "HelloWorld", this.yieldBox.address, this.tokenA.address)
         })
         cmd = await fixture()
     })
@@ -20,8 +20,8 @@ describe("HelloWorld", function () {
         await assert.rejects(this.helloWorld.deposit(APPROVAL_AMOUNT))
     })
 
-    it("approve BentoBox", async function () {
-        await this.tokenA.approve(this.bentoBox.address, getBigNumber(APPROVAL_AMOUNT, await this.tokenA.decimals()))
+    it("approve YieldBox", async function () {
+        await this.tokenA.approve(this.yieldBox.address, getBigNumber(APPROVAL_AMOUNT, await this.tokenA.decimals()))
     })
 
     it("should reject deposit: user approved, master contract not approved", async function () {
@@ -29,7 +29,7 @@ describe("HelloWorld", function () {
     })
 
     it("approve master contract", async function () {
-        await setMasterContractApproval(this.bentoBox, this.alice, this.alice, this.alicePrivateKey, this.helloWorld.address, true)
+        await setMasterContractApproval(this.yieldBox, this.alice, this.alice, this.alicePrivateKey, this.helloWorld.address, true)
     })
 
     it("should allow deposit", async function () {

@@ -3,17 +3,17 @@
 pragma solidity 0.6.12;
 
 import "@boringcrypto/boring-solidity/contracts/interfaces/IMasterContract.sol";
-import "../BoringBox.sol";
+import "../YieldBox.sol";
 
 contract MasterContractMock is IMasterContract {
-    BoringBox public immutable boringBox;
+    YieldBox public immutable yieldBox;
 
-    constructor(BoringBox _boringBox) public {
-        boringBox = _boringBox;
+    constructor(YieldBox _yieldBox) public {
+        yieldBox = _yieldBox;
     }
 
     function deposit(uint256 id, uint256 amount) public {
-        boringBox.deposit(id, msg.sender, address(this), 0, amount);
+        yieldBox.deposit(id, msg.sender, address(this), 0, amount);
     }
 
     function init(bytes calldata) external payable override {

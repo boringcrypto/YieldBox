@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: UNLICENSED
 
-// The BoringBox
+// The YieldBox
 // The original BentoBox is owned by the Sushi team to set strategies for each token. Abracadabra wanted different strategies, which led to
-// them launching their own DegenBox. The BoringBox solves this by allowing an unlimited number of strategies for each token in a fully
-// permissionless manner. The BoringBox has no owner and operates fully permissionless.
+// them launching their own DegenBox. The YieldBox solves this by allowing an unlimited number of strategies for each token in a fully
+// permissionless manner. The YieldBox has no owner and operates fully permissionless.
 
 // Other improvements:
 // Better system to make sure the token to share ratio doesn't reset.
@@ -28,12 +28,12 @@ import "@boringcrypto/boring-solidity/contracts/Domain.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 
-/// @title BoringBox
+/// @title YieldBox
 /// @author BoringCrypto, Keno
-/// @notice The BoringBox is a vault for tokens. The stored tokens can assigned to strategies.
+/// @notice The YieldBox is a vault for tokens. The stored tokens can assigned to strategies.
 /// Yield from this will go to the token depositors.
-/// Any funds transfered directly onto the BoringBox will be lost, use the deposit function instead.
-contract BoringBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiver {
+/// Any funds transfered directly onto the YieldBox will be lost, use the deposit function instead.
+contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiver {
     using BoringMath for uint256;
     using BoringAddress for address;
     using BoringERC20 for IERC20;
@@ -100,7 +100,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenRecei
     modifier allowed(address from) {
         if (from != msg.sender && !isApprovedForAll[from][msg.sender]) {
             address masterContract = masterContractOf[msg.sender];
-            require(masterContract != address(0) && isApprovedForAll[masterContract][from], "BoringBox: Not approved");
+            require(masterContract != address(0) && isApprovedForAll[masterContract][from], "YieldBox: Not approved");
         }
         _;
     }
@@ -232,7 +232,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenRecei
         uint256 share
     ) public payable allowed(from) returns (uint256 amountOut, uint256 shareOut) {
         // Checks
-        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
+        require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
 
         // Effects
         Asset memory asset = assets[id];
@@ -241,7 +241,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenRecei
         // If a new token gets added, the tokenSupply call checks that this is a deployed contract. Needed for security.
         if (totalAmount == 0) {
             if (asset.standard == EIP20) {
-                require(IERC20(asset.token).totalSupply() > 0, "BoringBox: No tokens");
+                require(IERC20(asset.token).totalSupply() > 0, "YieldBox: No tokens");
             }
         }
 
@@ -291,7 +291,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenRecei
         uint256 share
     ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
         // Checks
-        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
+        require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
 
         // Effects
         Asset memory asset = assets[id];
@@ -312,7 +312,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenRecei
             IWETH(address(wethToken)).withdraw(amount);
             // solhint-disable-next-line avoid-low-level-calls
             (bool success, ) = to.call{value: amount}("");
-            require(success, "BoringBox: ETH transfer failed");
+            require(success, "YieldBox: ETH transfer failed");
         } else {
             IERC20(asset.token).safeTransfer(to, amount);
         }
@@ -334,7 +334,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenRecei
         uint256 share
     ) public allowed(from) {
         // Checks
-        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
+        require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
 
         // Effects
         shares[id][from] = shares[id][from].sub(share);
@@ -350,7 +350,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenRecei
         uint256[] calldata shares_
     ) public allowed(from) {
         // Checks
-        require(to != address(0), "BoringBox: to not set"); // To avoid a bad UI from burning funds
+        require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
 
         // Effects
         uint256 len = ids_.length;
@@ -376,7 +376,7 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenRecei
         uint256[] calldata share
     ) public allowed(from) {
         // Checks
-        require(tos[0] != address(0), "BoringBox: to[0] not set"); // To avoid a bad UI from burning funds
+        require(tos[0] != address(0), "YieldBox: to[0] not set"); // To avoid a bad UI from burning funds
 
         // Effects
         uint256 totalAmount;
@@ -446,8 +446,8 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenRecei
 
     function setApprovalForAll(address operator, bool approved) external {
         // Checks
-        require(operator != address(0), "BoringBox: operator not set"); // Important for security
-        require(masterContractOf[msg.sender] == address(0), "BoringBox: user is clone");
+        require(operator != address(0), "YieldBox: operator not set"); // Important for security
+        require(masterContractOf[msg.sender] == address(0), "YieldBox: user is clone");
 
         // Effects
         isApprovedForAll[msg.sender][operator] = approved;
@@ -477,17 +477,17 @@ contract BoringBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenRecei
         bytes32 s
     ) public {
         // Checks
-        require(operator != address(0), "BoringBox: operator not set"); // Important for security
-        require(masterContractOf[user] == address(0), "BoringBox: user is clone");
+        require(operator != address(0), "YieldBox: operator not set"); // Important for security
+        require(masterContractOf[user] == address(0), "YieldBox: user is clone");
 
         // Important for security - any address without masterContract has address(0) as masterContract
         // So approving address(0) would approve every address, leading to full loss of funds
         // Also, ecrecover returns address(0) on failure. So we check this:
-        require(user != address(0), "BoringBox: User cannot be 0");
+        require(user != address(0), "YieldBox: User cannot be 0");
 
         bytes32 digest = _getDigest(keccak256(abi.encode(APPROVAL_SIGNATURE_HASH, user, operator, approved, nonces[user]++)));
         address recoveredAddress = ecrecover(digest, v, r, s);
-        require(recoveredAddress == user, "BoringBox: Invalid Signature");
+        require(recoveredAddress == user, "YieldBox: Invalid Signature");
 
         // Effects
         isApprovedForAll[user][operator] = approved;

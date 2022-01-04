@@ -1,6 +1,6 @@
-# BoringBox
+# YieldBox
 
-The BoringBox is a token and strategy vault to ease protocol development and add capitol efficiency to any protocol.
+The YieldBox is a token and strategy vault to ease protocol development and add capitol efficiency to any protocol.
 
 ## Background
 
@@ -8,13 +8,13 @@ BentoBox is a token vault where the owner can add a strategy for each token to g
 and had the ability to add strategies, but didn't do so until recently. Abracadabra also builds on top of the BentoBox and wanted certain
 strategies turned on, but could not agree with the Sushi team. This caused them to launch their own 'DegenBox'. Since the BentoBox concept
 benefits from a network effect, having multiple defeats the purpose. This points to a clear design flaw. There should be no ownership and
-the strategies used should be picked by the user. This prompted the development of the BoringBox.
+the strategies used should be picked by the user. This prompted the development of the YieldBox.
 
 ## Changes
 - Completely permissionless. The contract has no owner. Anyone can build protocols and strategies on it.
 - Support any number of strategies per token. Each token + strategy is an 'asset'.
-- Full automatic support for rebasing tokens. Protocols using BoringBox do not have to worry about rebasing.
-- Full EIP-1155 support, all BoringBox balances are now EIP-1155 tokens.
+- Full automatic support for rebasing tokens. Protocols using YieldBox do not have to worry about rebasing.
+- Full EIP-1155 support, all YieldBox balances are now EIP-1155 tokens.
 - Removed skimming functionality (to support rebasing tokens).
 - Removed flashloan support. This wasn't being used and wasn't as useful in the new design.
 
@@ -24,7 +24,7 @@ the strategies used should be picked by the user. This prompted the development 
 - 
 
 ## Protocol Benefits
-Anyone writing a token based protocol on top of BoringBox gets these benefits
+Anyone writing a token based protocol on top of YieldBox gets these benefits
 - Seamless support for rebasing tokens
 - No need to support ETH only WETH as just another token
 - Uniform asset behaviour

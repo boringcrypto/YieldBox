@@ -1,6 +1,6 @@
 pragma solidity 0.6.12;
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
-import "../../contracts/BentoBox.sol";
+import "../../contracts/YieldBox.sol";
 
 
 contract Borrower {
@@ -8,7 +8,7 @@ contract Borrower {
     fallback() external payable { }
     receive() external payable { }
 
-    BentoBox public bentoBox ;
+    YieldBox public yieldBox ;
     uint256 send;
 
     uint256 public callBack;
@@ -28,14 +28,14 @@ contract Borrower {
         bytes calldata data) external 
     {
         if (callBack == 1)
-            bentoBox.deposit(token, from, to, amount, share);
+            yieldBox.deposit(token, from, to, amount, share);
         else if(callBack == 2)
-            bentoBox.withdraw(token, from, to, amount, share);
+            yieldBox.withdraw(token, from, to, amount, share);
         else if(callBack == 3)
-            bentoBox.transfer(token, from, to, share);
+            yieldBox.transfer(token, from, to, share);
         else if(callBack == 4)
-            bentoBox.harvest(token, balance, maxChangeAmount); 
-        token.transfer(address(bentoBox), send);
+            yieldBox.harvest(token, balance, maxChangeAmount); 
+        token.transfer(address(yieldBox), send);
     }
 
     uint256[] sends;
@@ -48,7 +48,7 @@ contract Borrower {
     ) external {
         uint256 len = tokens.length;
         for (uint256 i = 0; i < len; i++) {
-            tokens[i].transfer(address(bentoBox), sends[i]);
+            tokens[i].transfer(address(yieldBox), sends[i]);
         }
     }
 

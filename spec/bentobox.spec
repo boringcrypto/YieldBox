@@ -1,6 +1,6 @@
 /*
     This is a specification file for smart contract verification with the Certora prover.
-    This file is run with scripts/_runBentoBox.sh
+    This file is run with scripts/_runYieldBox.sh
 */
 
 /*
@@ -87,8 +87,8 @@ invariant integrityOfTotalShare(address token)
  * solvency:
  * internal representation of total assets:
  * _tokenBalanceOf(token) >= totals[token].elastics
- * checking if the the total assets within the BentoBox and outside
- * the BentoBox are preserved
+ * checking if the the total assets within the YieldBox and outside
+ * the YieldBox are preserved
  */
 rule solvency(address token, address from, address to,
 								  uint256 amount, uint256 share, method f,
@@ -101,7 +101,7 @@ rule solvency(address token, address from, address to,
 								  uint256 strategyBalance_  ) {
 	//link the strategy to the current token
 	require strategyInstance.token() == token;
-	// link the strategy owner to the bentobox
+	// link the strategy owner to the YieldBox
 	require strategyInstance.owner() == currentContract;
 	require harnessBorrower() == borrower;
 	require harnessToken() == token;
@@ -215,8 +215,8 @@ rule noChangeToOthersBalances(address token, address from, address to,
 }
 
 /*
- * For every token and every user, the total assets within the bentobox and
- * outside the bentobox should be preserved. If other users transfer to a
+ * For every token and every user, the total assets within the YieldBox and
+ * outside the YieldBox should be preserved. If other users transfer to a
  * user, their balance should only go up.
  *
  * { v = token.balanceOf(a) + toAmount(token, balanceOf[token][a]) }

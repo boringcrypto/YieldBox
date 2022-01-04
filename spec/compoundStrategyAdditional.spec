@@ -8,7 +8,7 @@
 */
 using DummyERC20A as tokenInstance 
 // The contract that reveives back tokens from the strategy 
-// usually it is the bentobox
+// usually it is the YieldBox
 using Receiver as receiverInstance
 using Owner as ownerInstance
 
@@ -58,7 +58,7 @@ methods {
 // Working on a simplified version of cToken that doesn't revert
 
 
-//The BentoBox should be able to exit from the strategy and withdraw all possible assets
+//The YieldBox should be able to exit from the strategy and withdraw all possible assets
 rule exitRevert(uint256 balance) {
 	env e;
 	require (e.msg.value == 0 && e.msg.sender == receiver() && !exited());

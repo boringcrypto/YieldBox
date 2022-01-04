@@ -9,7 +9,7 @@ const { BN } = require("bn.js")
 const ADDRESS_ZERO = "0x0000000000000000000000000000000000000000"
 const BASE_TEN = 10
 const PERMIT_TYPEHASH = keccak256(toUtf8Bytes("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)"))
-const BENTOBOX_MASTER_APPROVAL_TYPEHASH = keccak256(
+const YIELDBOX_MASTER_APPROVAL_TYPEHASH = keccak256(
     toUtf8Bytes("SetMasterContractApproval(string warning,address user,address masterContract,bool approved,uint256 nonce)")
 )
 
@@ -52,13 +52,13 @@ function getApprovalMsg(tokenAddress, approve, nonce, deadline) {
     return pack
 }
 
-function getBentoBoxDomainSeparator(address, chainId) {
+function getYieldBoxDomainSeparator(address, chainId) {
     return keccak256(
         defaultAbiCoder.encode(
             ["bytes32", "bytes32", "uint256", "address"],
             [
                 keccak256(toUtf8Bytes("EIP712Domain(string name,uint256 chainId,address verifyingContract)")),
-                keccak256(toUtf8Bytes("BentoBox V1")),
+                keccak256(toUtf8Bytes("YieldBox V1")),
                 chainId,
                 address,
             ]
@@ -66,15 +66,15 @@ function getBentoBoxDomainSeparator(address, chainId) {
     )
 }
 
-function getBentoBoxApprovalDigest(bentoBox, user, masterContractAddress, approved, nonce, chainId = 1) {
-    const DOMAIN_SEPARATOR = getBentoBoxDomainSeparator(bentoBox.address, chainId)
+function getYieldBoxApprovalDigest(yieldBox, user, masterContractAddress, approved, nonce, chainId = 1) {
+    const DOMAIN_SEPARATOR = getYieldBoxDomainSeparator(yieldBox.address, chainId)
     const msg = defaultAbiCoder.encode(
         ["bytes32", "bytes32", "address", "address", "bool", "uint256"],
         [
-            BENTOBOX_MASTER_APPROVAL_TYPEHASH,
+            YIELDBOX_MASTER_APPROVAL_TYPEHASH,
             approved
-                ? keccak256(toUtf8Bytes("Give FULL access to funds in (and approved to) BentoBox?"))
-                : keccak256(toUtf8Bytes("Revoke access to BentoBox?")),
+                ? keccak256(toUtf8Bytes("Give FULL access to funds in (and approved to) YieldBox?"))
+                : keccak256(toUtf8Bytes("Revoke access to YieldBox?")),
             user.address,
             masterContractAddress,
             approved,
@@ -85,22 +85,22 @@ function getBentoBoxApprovalDigest(bentoBox, user, masterContractAddress, approv
     return keccak256(pack)
 }
 
-function getSignedMasterContractApprovalData(bentoBox, user, privateKey, masterContractAddress, approved, nonce) {
-    const digest = getBentoBoxApprovalDigest(bentoBox, user, masterContractAddress, approved, nonce, user.provider._network.chainId)
+function getSignedMasterContractApprovalData(yieldBox, user, privateKey, masterContractAddress, approved, nonce) {
+    const digest = getYieldBoxApprovalDigest(yieldBox, user, masterContractAddress, approved, nonce, user.provider._network.chainId)
     const { v, r, s } = ecsign(Buffer.from(digest.slice(2), "hex"), Buffer.from(privateKey.replace("0x", ""), "hex"))
     return { v, r, s }
 }
 
-async function setMasterContractApproval(bentoBox, from, user, privateKey, masterContractAddress, approved, fallback) {
+async function setMasterContractApproval(yieldBox, from, user, privateKey, masterContractAddress, approved, fallback) {
     if (!fallback) {
-        const nonce = await bentoBox.nonces(user.address)
+        const nonce = await yieldBox.nonces(user.address)
 
-        const digest = getBentoBoxApprovalDigest(bentoBox, user, masterContractAddress, approved, nonce, user.provider._network.chainId)
+        const digest = getYieldBoxApprovalDigest(yieldBox, user, masterContractAddress, approved, nonce, user.provider._network.chainId)
         const { v, r, s } = ecsign(Buffer.from(digest.slice(2), "hex"), Buffer.from(privateKey.replace("0x", ""), "hex"))
 
-        return await bentoBox.connect(user).setMasterContractApproval(from.address, masterContractAddress, approved, v, r, s)
+        return await yieldBox.connect(user).setMasterContractApproval(from.address, masterContractAddress, approved, v, r, s)
     }
-    return await bentoBox
+    return await yieldBox
         .connect(user)
         .setMasterContractApproval(
             from.address,
@@ -347,8 +347,8 @@ module.exports = {
     getDomainSeparator,
     getApprovalDigest,
     getApprovalMsg,
-    getBentoBoxDomainSeparator,
-    getBentoBoxApprovalDigest,
+    getYieldBoxDomainSeparator,
+    getYieldBoxApprovalDigest,
     getSignedMasterContractApprovalData,
     setMasterContractApproval,
     sansSafetyAmount,

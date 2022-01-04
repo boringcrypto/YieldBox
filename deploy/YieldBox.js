@@ -28,7 +28,7 @@ module.exports = async function (hre) {
   await tx.wait();
 
   console.log("Deploying contract")
-  tx = await hre.deployments.deploy("BentoBoxV1", {
+  tx = await hre.deployments.deploy("YieldBox", {
     from: deployer.address,
     args: [weth(chainId)],
     log: true,

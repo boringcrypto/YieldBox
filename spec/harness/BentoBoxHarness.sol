@@ -1,10 +1,10 @@
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "../../contracts/BentoBox.sol";
+import "../../contracts/YieldBox.sol";
 
 // Note: Rebasing tokens ARE NOT supported and WILL cause loss of funds
-contract BentoBoxHarness is BentoBox {
+contract YieldBoxHarness is YieldBox {
 
 	// getters to internal 
 	function totalTokenAmount(address token) public returns (uint128) {
@@ -67,7 +67,7 @@ contract BentoBoxHarness is BentoBox {
 	//for invariants we need a function that simulate the constructor 
 	function init_state() public { }
 
-	constructor(IERC20 wethToken_) BentoBox(wethToken_) public { }
+	constructor(IERC20 wethToken_) YieldBox(wethToken_) public { }
 
 
 	function batch(bytes[] calldata calls, bool revertOnFail) external override payable returns(bool[] memory successes, bytes[] memory results) {
