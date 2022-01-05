@@ -247,6 +247,8 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         uint256 totalAmount = _tokenBalanceOf(asset);
 
         // If a new token gets added, the tokenSupply call checks that this is a deployed contract. Needed for security.
+        // Prevents getting shares for a token that will be deployed with CREATE2 in the future or as the contract creation is
+        // in the mempool
         if (totalAmount == 0) {
             if (asset.standard == EIP20) {
                 require(IERC20(asset.contractAddress).totalSupply() > 0, "YieldBox: No tokens");
@@ -270,7 +272,6 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         } else if (asset.standard == EIP1155) {
             IERC1155(asset.contractAddress).safeTransferFrom(from, asset.strategy == IStrategy(0) ? address(this) : address(asset.strategy), asset.tokenId, amount, "");
         }
-        emit LogDeposit(IERC20(asset.contractAddress), asset.strategy, from, to, amount, share);
         emit TransferSingle(msg.sender, address(0), to, assetId, share);
         amountOut = amount;
         shareOut = share;
@@ -281,7 +282,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         address to
     ) public payable returns (uint256 amountOut, uint256 shareOut) {
         // Checks
-        require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
+        require(to != address(0), "YieldBox: 'to' not set"); // To avoid a bad UI from burning funds
         Asset memory asset = assets[assetId];
         require(asset.standard == EIP20 && IERC20(asset.contractAddress) == wethToken, "YieldBox: not WETH");
 
@@ -297,7 +298,6 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         if (asset.strategy != IStrategy(0)) {
             wethToken.safeTransfer(address(asset.strategy), amount);
         }
-        emit LogDeposit(IERC20(asset.contractAddress), asset.strategy, msg.sender, to, amount, share);
         emit TransferSingle(msg.sender, address(0), to, assetId, share);
         amountOut = amount;
         shareOut = share;
@@ -334,12 +334,14 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         totalShares[assetId] = totalShares[assetId].sub(share);
 
         // Interactions
-        if (asset.strategy != IStrategy(0)) {
+        if (asset.strategy == IStrategy(0)) {
             if (asset.standard == EIP20) {
                 IERC20(asset.contractAddress).safeTransfer(to, amount);
+            } else if (asset.standard == EIP1155) {
+                IERC1155(asset.contractAddress).safeTransferFrom(address(this), to, asset.tokenId, amount, "");
             }
         } else {
-
+            asset.strategy.withdraw(amount, to);
         }
         emit LogWithdraw(IERC20(asset.contractAddress), asset.strategy, from, to, amount, share);
         emit TransferSingle(msg.sender, from, address(0), assetId, share);
