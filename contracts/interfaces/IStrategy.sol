@@ -2,8 +2,6 @@
 pragma solidity 0.6.12;
 pragma experimental ABIEncoderV2;
 
-import "@boringcrypto/boring-solidity/contracts/interfaces/IERC20.sol";
-
 interface IStrategy {
     /// Each strategy only works with a single asset. This shoudl help make implementations simpler and more readable.
     /// To safe gas a proxy pattern (YieldBox factory) could be used to deploy the same strategy for multiple tokens.
@@ -43,7 +41,7 @@ interface IStrategy {
     /// This should be cheap in gas to retrieve. Can return a bit less than the actual, but shouldn't return more.
     /// The gas cost of this function will be paid on any deposit or withdrawal onto and out of the YieldBox
     /// that uses this strategy. Also, anytime a protocol converts between shares and amount, this gets called.
-    function currentBalance() external view returns (uint256 amount);
+    function currentBalance() external returns (uint256 amount);
 
     /// Returns the maximum amount that can be withdrawn
     function withdrawable() external view returns (uint256 amount);

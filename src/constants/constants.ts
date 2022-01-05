@@ -12,8 +12,7 @@ interface Constants {
         rpcUrls: string[],
         blockExplorerUrls: string[],
     },
-    pixel: string,
-    canvas: string
+    yieldbox: string
 }
 
 export {

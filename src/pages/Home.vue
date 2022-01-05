@@ -2,7 +2,7 @@
     <table style="width: 1004px; margin: auto; border-spacing: 0;">
         <tr>
             <td style="text-align: left; vertical-align: top">
-                Hi
+                Hi {{ yieldbox }}
             </td>
             <td style="text-align: right">
                 <span v-if="info.chainId == 0">
@@ -42,6 +42,7 @@ export default defineComponent({
     },
     data() {
         return {
+            yieldbox: constants.yieldbox
         }
     }
 })

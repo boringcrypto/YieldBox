@@ -1,6 +1,5 @@
 import { Constants } from "./constants"
-//import * as PixelDeployment from "../../deployments/localhost/PixelV2.json"
-import * as CanvasDeployment from "../../deployments/localhost/Canvas.json"
+import * as YieldBoxDeployment from "../../deployments/localhost/YieldBox.json"
 
 let constants: Constants = {
     chainId: 31337,
@@ -16,7 +15,6 @@ let constants: Constants = {
         rpcUrls: ['http://localhost:8545'],
         blockExplorerUrls: ['https://localhost/'],
     },
-    pixel: "0x1590ABe3612Be1CB3ab5B0f28874D521576e97Dc",
-    canvas: CanvasDeployment.address
+    yieldbox: YieldBoxDeployment.address
 }
 export { constants }

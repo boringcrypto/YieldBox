@@ -51,9 +51,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     // *** EVENTS *** //
     // ************** //
 
-    event LogDeposit(IERC20 indexed token, IStrategy strategy, address indexed from, address indexed to, uint256 amount, uint256 share);
-    event LogWithdraw(IERC20 indexed token, IStrategy strategy, address indexed from, address indexed to, uint256 amount, uint256 share);
-    event LogTransfer(IERC20 indexed token, IStrategy strategy, address indexed from, address indexed to, uint256 share);
+    // TODO: Add events
 
     // EIP-1155 events
     event TransferSingle(address indexed _operator, address indexed _from, address indexed _to, uint256 _id, uint256 _value);
@@ -84,6 +82,9 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
 
     // Total shares per asset
     mapping(uint256 => uint256) public totalShares;
+
+    // Approved operators per user. If the operator is a master contract, it will also approve all clones.
+    mapping(address => mapping(address => bool)) public isApprovedForAll;
 
     // ******************* //
     // *** CONSTRUCTOR *** //
@@ -181,7 +182,8 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     function supportsInterface(bytes4 interfaceID) external pure returns (bool) {
         return
             interfaceID == 0x01ffc9a7 || // EIP-165
-            interfaceID == 0xd9b67a26; // EIP-1155
+            interfaceID == 0xd9b67a26 || // EIP-1155
+            interfaceID == 0x0e89341c; // EIP-1155 Metadata
     }
 
     /// @dev Helper function to represent an `amount` of `token` in shares.
@@ -251,7 +253,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         // in the mempool
         if (totalAmount == 0) {
             if (asset.standard == EIP20) {
-                require(IERC20(asset.contractAddress).totalSupply() > 0, "YieldBox: No tokens");
+                require(asset.contractAddress.isContract(), "YieldBox: Not a token");
             }
         }
 
@@ -343,7 +345,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         } else {
             asset.strategy.withdraw(amount, to);
         }
-        emit LogWithdraw(IERC20(asset.contractAddress), asset.strategy, from, to, amount, share);
+
         emit TransferSingle(msg.sender, from, address(0), assetId, share);
         amountOut = amount;
         shareOut = share;
@@ -375,15 +377,15 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         totalShares[assetId] = totalShares[assetId].sub(share);
 
         // Interactions
-        if (asset.strategy != IStrategy(0)) {
+        if (asset.strategy == IStrategy(0)) {
+            IWETH(address(wethToken)).withdraw(amount);
+            // solhint-disable-next-line avoid-low-level-calls
+            (bool success, ) = to.call{value: amount}("");
+            require(success, "YieldBox: ETH transfer failed");
+        } else {
+            asset.strategy.withdrawETH(amount, to);
         }
 
-        IWETH(address(wethToken)).withdraw(amount);
-        // solhint-disable-next-line avoid-low-level-calls
-        (bool success, ) = to.call{value: amount}("");
-        require(success, "YieldBox: ETH transfer failed");
-
-        emit LogWithdraw(IERC20(asset.contractAddress), asset.strategy, from, to, amount, share);
         emit TransferSingle(msg.sender, from, address(0), assetId, share);
         amountOut = amount;
         shareOut = share;
@@ -508,8 +510,6 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
             balances[i] = shares[ids_[i]][owners[i]];
         }
     }
-
-    mapping(address => mapping(address => bool)) public isApprovedForAll;
 
     function setApprovalForAll(address operator, bool approved) external {
         // Checks
