@@ -7,9 +7,9 @@
   resolved "https://registry.yarnpkg.com/@babel/parser/-/parser-7.16.6.tgz#8f194828193e8fa79166f34a4b4e52f3e769a314"
   integrity sha512-Gr86ujcNuPDnNOY8mi383Hvi8IYrJVJYuf3XcuBM/Dgd+bINn/7tHqsj+tKkoreMbmGsFLsltI/JJd8fOFWGDQ==
 
-"@boringcrypto/boring-solidity@boringcrypto/BoringSolidity#d232d7f6a624c4f7ccf9baf78e6e817efd54b01d":
-  version "1.2.3"
-  resolved "https://codeload.github.com/boringcrypto/BoringSolidity/tar.gz/d232d7f6a624c4f7ccf9baf78e6e817efd54b01d"
+"@boringcrypto/boring-solidity@boringcrypto/BoringSolidity#ccb743d4c3363ca37491b87c6c9b24b1f5fa25dc":
+  version "1.2.4"
+  resolved "https://codeload.github.com/boringcrypto/BoringSolidity/tar.gz/ccb743d4c3363ca37491b87c6c9b24b1f5fa25dc"
 
 "@boringcrypto/hardhat-framework@boringcrypto/hardhat-framework#8bc714f70dc1075cfcaa0fa0c6d4e4b9624cf14c":
   version "1.2.0"
@@ -9812,6 +9812,11 @@ type@^2.0.0:
   version "2.1.0"
   resolved "https://registry.yarnpkg.com/type/-/type-2.1.0.tgz#9bdc22c648cf8cf86dd23d32336a41cfb6475e3f"
   integrity sha512-G9absDWvhAWCV2gmF1zKud3OyC61nZDwWvBL2DApaVFogI07CprggiQAOOjvp2NRjYWFzPyu7vwtDrQFq8jeSA==
+
+typechain-target-ethers-v5@^5.0.1:
+  version "5.0.1"
+  resolved "https://registry.yarnpkg.com/typechain-target-ethers-v5/-/typechain-target-ethers-v5-5.0.1.tgz#a6b0ce6c2e8ff55f2d555d8ab55b9251ed9d211c"
+  integrity sha512-ag2fMLcXTZwtHSeDT6+QanmY7yVn3VSYBcqIGpj1A3Zp+d9Bmto5qM/eFXUsql4i9UBLgr3GVGgjkR6lz40QGQ==
 
 typechain@^3.0.0:
   version "3.0.0"

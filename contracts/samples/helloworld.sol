@@ -29,7 +29,7 @@ contract HelloWorld {
 
     // This will return the current value in amount of the YieldBox shares.
     // Through flash loans and maybe a strategy, the value can go up over time.
-    function balance() public view returns (uint256 amount) {
+    function balance() public returns (uint256 amount) {
         return yieldBox.toAmount(assetId, yieldBoxShares[msg.sender], false);
     }
 

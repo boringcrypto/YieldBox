@@ -41,7 +41,7 @@ interface IStrategy {
     /// This should be cheap in gas to retrieve. Can return a bit less than the actual, but shouldn't return more.
     /// The gas cost of this function will be paid on any deposit or withdrawal onto and out of the YieldBox
     /// that uses this strategy. Also, anytime a protocol converts between shares and amount, this gets called.
-    function currentBalance() external returns (uint256 amount);
+    function currentBalance() external view returns (uint256 amount);
 
     /// Returns the maximum amount that can be withdrawn
     function withdrawable() external view returns (uint256 amount);

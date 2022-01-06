@@ -26,32 +26,24 @@ contract SushiStakingStrategy is IStrategy {
     IERC20 private constant sushi = IERC20(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2);
     ISushiBar private constant sushiBar = ISushiBar(0x8798249c2E607446EfB7Ad49eC89dD1865Ff4272);
 
-    struct BalanceCache {
-        uint64 last;
-        uint192 balance;
-    }
-
-    BalanceCache cache;
+    uint256 _balance;
 
     /// Returns the total value the strategy holds (principle + gain) expressed in asset token amount.
     /// This should be cheap in gas to retrieve. Can return a bit less than the actual, but shouldn't return more.
     /// The gas cost of this function will be paid on any deposit or withdrawal onto and out of the YieldBox
     /// that uses this strategy. Also, anytime a protocol converts between shares and amount, this gets called.
-    function currentBalance() public override returns (uint256 amount) {
-        // Only update if the last call is 240 blocks ago (about an hour)
-        if (block.number - cache.last > 240) {
-            cache = BalanceCache(
-                uint64(block.number),
-                uint192(_currentBalance())
-            );
-        }
-        return cache.balance;
+    function currentBalance() public view override returns (uint256 amount) {
+        return _balance;
     }
 
-    function _currentBalance() internal view returns (uint256 amount) {
+    function _currentBalance() private view returns (uint256 amount) {
         return sushi.balanceOf(address(this)).add(
             sushi.balanceOf(address(sushiBar)).mul(sushiBar.balanceOf(address(this))) / sushiBar.totalSupply()
         );
+    }
+
+    function update() public {
+        _balance = _currentBalance();
     }
 
     /// Returns the maximum amount that can be withdrawn
@@ -76,14 +68,14 @@ contract SushiStakingStrategy is IStrategy {
     /// Only accept this call from the YieldBox
     function deposited(uint256 amount) external override {
         // Update cached balance with the new added amount
-        cache.balance += uint192(amount);
+        _balance += amount;
         // Get the size of the reserve in % (1e18 based)
-        uint256 reservePercent = sushi.balanceOf(address(this)).mul(100e18) / cache.balance;
+        uint256 reservePercent = sushi.balanceOf(address(this)).mul(100e18) / _balance;
 
         // Check if the reserve is too large, if so invest it
         if (reservePercent > MAX_RESERVE_PERCENT) {
             sushiBar.enter(
-                uint256(cache.balance).mul(reservePercent.sub(TARGET_RESERVE_PERCENT)) / 100e18
+                _balance.mul(reservePercent.sub(TARGET_RESERVE_PERCENT)) / 100e18
             );
         }
     }
@@ -93,12 +85,12 @@ contract SushiStakingStrategy is IStrategy {
     /// the strategy should divest enough from the strategy to complete the withdrawal and rebalance the reserve.
     /// Only accept this call from the YieldBox
     function withdraw(uint256 amount, address to) external override {
-        cache.balance = cache.balance > amount ? uint192(cache.balance - amount) : 0;
+        _balance = _balance > amount ? _balance - amount : 0;
 
         uint256 reserve = sushi.balanceOf(address(this));
         if (reserve < amount) {
             uint256 shares = sushiBar.balanceOf(address(this));
-            if (cache.balance == 0) {
+            if (_balance == 0) {
                 // Withdraw all from SushiBar
                 sushiBar.leave(shares);
             } else {
@@ -106,7 +98,7 @@ contract SushiStakingStrategy is IStrategy {
                 uint256 totalSushi = sushi.balanceOf(address(sushiBar));
 
                 // The amount of Sushi that should invested after withdrawal
-                uint256 targetSushi = uint256(cache.balance).mul(100e18 - TARGET_RESERVE_PERCENT) / 100e18;
+                uint256 targetSushi = uint256(_balance).mul(100e18 - TARGET_RESERVE_PERCENT) / 100e18;
                 // The amount of shares (xSushi) that should be invested after withdrawal
                 uint256 targetShares = targetSushi.mul(totalShares) / totalSushi;
 
