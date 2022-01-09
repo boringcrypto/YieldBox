@@ -1,25 +1,48 @@
 <template>
-    <b-form-select v-model="function_selected" class="mb-3">
-        <b-form-select-option-group label="Views">
-            <b-form-select-option v-for="f in functions.filter(f => f.func.stateMutability == 'view')" :value="f.key" :key="f.key">{{ f.key }}</b-form-select-option>                    
-        </b-form-select-option-group>
-        <b-form-select-option-group label="Calls">
-            <b-form-select-option v-for="f in functions.filter(f => f.func.stateMutability != 'view')" :value="f.key" :key="f.key">{{ f.key }}</b-form-select-option>                    
-        </b-form-select-option-group>
-    </b-form-select>
+    <div class="row">
+        <div class="col-4 mx-auto">
+            <b-form-select v-model="function_selected" class="mb-3">
+                <b-form-select-option-group label="Views">
+                    <b-form-select-option v-for="f in functions.filter(f => f.func.stateMutability == 'view')" :value="f.key" :key="f.key">{{ f.key }}</b-form-select-option>                    
+                </b-form-select-option-group>
+                <b-form-select-option-group label="Calls">
+                    <b-form-select-option v-for="f in functions.filter(f => f.func.stateMutability != 'view')" :value="f.key" :key="f.key">{{ f.key }}</b-form-select-option>                    
+                </b-form-select-option-group>
+            </b-form-select>
 
-    <div v-if="yieldbox && yieldbox.interface && func">
-        <b-card>
-            <div v-for="(input, i) in func.func.inputs" :key="input.name">
-                <label>{{ input.baseType }}</label>
-                <b-form-input :ref="func.key + '|' + i" :placeholder="input.name"></b-form-input>
+            <div v-if="yieldbox && yieldbox.interface && func">
+                <b-card>
+                    <div v-for="(input, i) in func.func.inputs" :key="input.name">
+                        <label>{{ input.baseType }}</label>
+                        <div v-if="input.baseType == 'address'">
+                            <b-form-input v-model="args[func.key + '|' + i]" :placeholder="input.name"></b-form-input>
+  <b-dropdown id="dropdown-1" text="Dropdown Button" class="m-md-2">
+    <b-dropdown-item>First Action</b-dropdown-item>
+    <b-dropdown-item variant="primary">Second Action</b-dropdown-item>
+    <b-dropdown-item active>Active action</b-dropdown-item>
+    <b-dropdown-item disabled>Disabled action</b-dropdown-item>
+    <b-dropdown-item href="Badge">Badge</b-dropdown-item>
+  </b-dropdown>
+                        </div>
+                        <b-form-input v-else v-model="args[func.key + '|' + i]" :placeholder="input.name"></b-form-input>
+                    </div>
+                    <div v-if="func.func.stateMutability == 'payable'">
+                        <label>ETH value</label>
+                        <b-form-input :ref="func.key + '|value'"></b-form-input>
+                    </div>
+                    <div v-if="func.func.stateMutability == 'view'">
+                        <b-button class="mt-3" @click="read(func)">Read</b-button>
+                    </div>
+                    <div v-if="func.func.stateMutability != 'view'" class="mt-3">
+                        <label>Account</label>
+                        <b-form-select v-model="account">
+                            <b-form-select-option v-for="a, i in hardhat.accounts" :key="a.address" :value="i">{{ a.name }}</b-form-select-option>
+                        </b-form-select>
+                        <b-button class="mt-3" @click="read(func)">Call</b-button>
+                    </div>
+                </b-card>
             </div>
-            <div v-if="func.func.stateMutability == 'payable'">
-                <label>ETH value</label>
-                <b-form-input :ref="func.key + '|value'"></b-form-input>
-            </div>
-            <b-button class="mt-3" @click="read(func)">Read</b-button>
-        </b-card>
+        </div>
     </div>
 </template>
 
@@ -56,11 +79,11 @@ export default defineComponent({
                 }
             }
         },
-        read: async function(func: {key: String, func: FunctionFragment}) {
+        read: async function(func: {key: string, func: FunctionFragment}) {
             let args = []
             for(let i in func.func.inputs) {
                 let input = func.func.inputs[i]
-                let val = this.$refs[func.key + '|' + i].value
+                let val = this.args[func.key + '|' + i].value
                 if (input.baseType == "address") {
                     args.push(val || ethers.constants.AddressZero)
                 } else if (input.baseType.startsWith("uint")) {
@@ -69,7 +92,7 @@ export default defineComponent({
                     args.push(val)
                 }
             }
-            let result = await this.yieldbox?.functions[func.key](...args);
+            let result = await (this.yieldbox?.functions as any)[func.key](...args);
             console.log(result);
         }
     },   
@@ -86,11 +109,16 @@ export default defineComponent({
                 ? functions.value.filter(f => f.key == function_selected.value)[0]
                 : null
         })
+        const args = ref({} as any)
+        const account = ref(0)
+
         return {
             yieldbox,
             function_selected,
             functions,
-            func
+            func,
+            args,
+            account
         }
     }
 })
