@@ -4,9 +4,8 @@ export type ProviderInfo = {
     name: string
     connected: boolean
     chainId: number
+    addresses: string[]
     address: string
     block: number
-    connect: () => void
-    provider: ethers.providers.Provider | null
 }
 

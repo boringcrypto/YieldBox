@@ -125,11 +125,14 @@ async function decompress<T>(str: string | null): Promise<T | null> {
     return null
 }
 
+const importUtils = true
+
 export {
     cleanURI,
     sleep,
     playSound,
     randomItem,
     compress,
-    decompress
+    decompress,
+    importUtils
 }

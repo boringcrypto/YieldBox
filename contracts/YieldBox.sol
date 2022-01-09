@@ -214,16 +214,37 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
 
     function registerAsset(uint96 standard, address contractAddress, IStrategy strategy, uint256 tokenId) public returns (uint256 assetId) {
         // Checks
-        require(tokenId == 0 || standard != EIP20, "YieldBox: No tokenId for ERC20");
-        require(strategy == IStrategy(0) || (standard == strategy.standard() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()), "YieldBox: Strategy mismatch");
-
-        // Effects
         assetId = ids[standard][contractAddress][strategy][tokenId];
         if (assetId == 0) {
+            // Only do these checks if a new asset needs to be created
+            require(tokenId == 0 || standard != EIP20, "YieldBox: No tokenId for ERC20");
+            require(strategy == IStrategy(0) || (standard == strategy.standard() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()), "YieldBox: Strategy mismatch");
+
+            // Effects
             assets.push(Asset(standard, contractAddress, strategy, tokenId));
             assetId = assets.length;
             ids[standard][contractAddress][strategy][tokenId] = assetId;
         }
+    }
+
+    function deposit(
+        uint96 standard,
+        address contractAddress,
+        IStrategy strategy,
+        uint256 tokenId,
+        address from,
+        address to,
+        uint256 amount,
+        uint256 share
+    ) public returns (uint256 amountOut, uint256 shareOut)  {
+        return depositAsset(registerAsset(standard, contractAddress, strategy, tokenId), from, to, amount, share);
+    }
+
+    function depositETH(
+        IStrategy strategy,
+        address to
+    ) public payable returns (uint256 amountOut, uint256 shareOut) {
+        return depositETHAsset(registerAsset(EIP20, address(wethToken), strategy, 0), to);
     }
 
     /// @notice Deposit an amount of `token` represented in either `amount` or `share`.
@@ -234,7 +255,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     /// @param share Token amount represented in shares to deposit. Takes precedence over `amount`.
     /// @return amountOut The amount deposited.
     /// @return shareOut The deposited amount repesented in shares.
-    function deposit(
+    function depositAsset(
         uint256 assetId,
         address from,
         address to,
@@ -245,7 +266,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
 
         // Effects
-        Asset memory asset = assets[assetId];
+        Asset storage asset = assets[assetId];
         uint256 totalAmount = _tokenBalanceOf(asset);
 
         // If a new token gets added, the tokenSupply call checks that this is a deployed contract. Needed for security.
@@ -279,13 +300,13 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         shareOut = share;
     }
 
-    function depositETH(
+    function depositETHAsset(
         uint256 assetId,
         address to
     ) public payable returns (uint256 amountOut, uint256 shareOut) {
         // Checks
         require(to != address(0), "YieldBox: 'to' not set"); // To avoid a bad UI from burning funds
-        Asset memory asset = assets[assetId];
+        Asset storage asset = assets[assetId];
         require(asset.standard == EIP20 && IERC20(asset.contractAddress) == wethToken, "YieldBox: not WETH");
 
         // Effects
@@ -322,7 +343,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
 
         // Effects
-        Asset memory asset = assets[assetId];
+        Asset storage asset = assets[assetId];
         uint256 totalAmount = _tokenBalanceOf(asset);
         if (share == 0) {
             // value of the share paid could be lower than the amount paid due to rounding, in that case, add a share (Always round up)
@@ -360,7 +381,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
         // Checks
         require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
-        Asset memory asset = assets[assetId];
+        Asset storage asset = assets[assetId];
         require(asset.standard == EIP20 && IERC20(asset.contractAddress) == wethToken, "YieldBox: not WETH");
 
         // Effects

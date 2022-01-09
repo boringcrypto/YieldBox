@@ -24,12 +24,12 @@ contract HelloWorld {
     // assigned to the user in yieldBoxShares.
     // Don't deposit twice, you'll lose the first deposit ;)
     function deposit(uint256 amount) public {
-        (, yieldBoxShares[msg.sender]) = yieldBox.deposit(assetId, msg.sender, address(this), amount, 0);
+        (, yieldBoxShares[msg.sender]) = yieldBox.depositAsset(assetId, msg.sender, address(this), amount, 0);
     }
 
     // This will return the current value in amount of the YieldBox shares.
     // Through flash loans and maybe a strategy, the value can go up over time.
-    function balance() public returns (uint256 amount) {
+    function balance() public view returns (uint256 amount) {
         return yieldBox.toAmount(assetId, yieldBoxShares[msg.sender], false);
     }
 

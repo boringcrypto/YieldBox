@@ -105,7 +105,7 @@ contract Salary is BoringBatchable {
             // Fund this salary with ERC20 tokens
             // This is a potential reentrancy target, funds in this contract could be higher than the total of salaries during this call
             // Since this contract doesn't have a skim function, this is ok
-            (, shares) = yieldBox.deposit(assetId, msg.sender, address(this), amount, 0);
+            (, shares) = yieldBox.depositAsset(assetId, msg.sender, address(this), amount, 0);
         }
 
         salaryId = salaries.length;

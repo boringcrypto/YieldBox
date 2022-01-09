@@ -13,7 +13,7 @@ contract MasterContractMock is IMasterContract {
     }
 
     function deposit(uint256 id, uint256 amount) public {
-        yieldBox.deposit(id, msg.sender, address(this), 0, amount);
+        yieldBox.depositAsset(id, msg.sender, address(this), 0, amount);
     }
 
     function init(bytes calldata) external payable override {

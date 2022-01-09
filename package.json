@@ -92,15 +92,18 @@
         "express": "^4.17.1",
         "sass": "^1.32.12",
         "ts-node": "^10.1.0",
+        "typechain": "4.0.0",
         "typechain-target-ethers-v5": "^5.0.1",
         "typescript": "^4.1.3",
         "vite": "^2.7.10"
     },
     "dependencies": {
-        "bootstrap": "^5.0.0-beta3",
+        "@popperjs/core": "2.10.2",
+        "bootstrap": "^5.1.3",
+        "bootstrap-vue-3": "^0.1.0",
+        "bootswatch": "^5.1.0",
         "ethers": "^5.1.4",
-        "node-canvas": "^2.7.0",
-        "vue": "^3.0.5",
+        "vue": "^3.2.26",
         "vue-router": "4",
         "vue-tsc": "^0.0.24"
     }

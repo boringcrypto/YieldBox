@@ -31,8 +31,10 @@ interface YieldBoxInterface extends ethers.utils.Interface {
     "batch(bytes[],bool)": FunctionFragment;
     "batchTransfer(address,address,uint256[],uint256[])": FunctionFragment;
     "deploy(address,bytes,bool)": FunctionFragment;
-    "deposit(uint256,address,address,uint256,uint256)": FunctionFragment;
-    "depositETH(uint256,address)": FunctionFragment;
+    "deposit(uint96,address,address,uint256,address,address,uint256,uint256)": FunctionFragment;
+    "depositAsset(uint256,address,address,uint256,uint256)": FunctionFragment;
+    "depositETH(address,address)": FunctionFragment;
+    "depositETHAsset(uint256,address)": FunctionFragment;
     "ids(uint96,address,address,uint256)": FunctionFragment;
     "isApprovedForAll(address,address)": FunctionFragment;
     "masterContractOf(address)": FunctionFragment;
@@ -87,10 +89,27 @@ interface YieldBoxInterface extends ethers.utils.Interface {
   ): string;
   encodeFunctionData(
     functionFragment: "deposit",
+    values: [
+      BigNumberish,
+      string,
+      string,
+      BigNumberish,
+      string,
+      string,
+      BigNumberish,
+      BigNumberish
+    ]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "depositAsset",
     values: [BigNumberish, string, string, BigNumberish, BigNumberish]
   ): string;
   encodeFunctionData(
     functionFragment: "depositETH",
+    values: [string, string]
+  ): string;
+  encodeFunctionData(
+    functionFragment: "depositETHAsset",
     values: [BigNumberish, string]
   ): string;
   encodeFunctionData(
@@ -202,7 +221,15 @@ interface YieldBoxInterface extends ethers.utils.Interface {
   ): Result;
   decodeFunctionResult(functionFragment: "deploy", data: BytesLike): Result;
   decodeFunctionResult(functionFragment: "deposit", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "depositAsset",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "depositETH", data: BytesLike): Result;
+  decodeFunctionResult(
+    functionFragment: "depositETHAsset",
+    data: BytesLike
+  ): Result;
   decodeFunctionResult(functionFragment: "ids", data: BytesLike): Result;
   decodeFunctionResult(
     functionFragment: "isApprovedForAll",
@@ -420,6 +447,30 @@ export class YieldBox extends Contract {
     ): Promise<ContractTransaction>;
 
     deposit(
+      standard: BigNumberish,
+      contractAddress: string,
+      strategy: string,
+      tokenId: BigNumberish,
+      from: string,
+      to: string,
+      amount: BigNumberish,
+      share: BigNumberish,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    "deposit(uint96,address,address,uint256,address,address,uint256,uint256)"(
+      standard: BigNumberish,
+      contractAddress: string,
+      strategy: string,
+      tokenId: BigNumberish,
+      from: string,
+      to: string,
+      amount: BigNumberish,
+      share: BigNumberish,
+      overrides?: Overrides
+    ): Promise<ContractTransaction>;
+
+    depositAsset(
       assetId: BigNumberish,
       from: string,
       to: string,
@@ -428,7 +479,7 @@ export class YieldBox extends Contract {
       overrides?: Overrides
     ): Promise<ContractTransaction>;
 
-    "deposit(uint256,address,address,uint256,uint256)"(
+    "depositAsset(uint256,address,address,uint256,uint256)"(
       assetId: BigNumberish,
       from: string,
       to: string,
@@ -438,12 +489,24 @@ export class YieldBox extends Contract {
     ): Promise<ContractTransaction>;
 
     depositETH(
+      strategy: string,
+      to: string,
+      overrides?: PayableOverrides
+    ): Promise<ContractTransaction>;
+
+    "depositETH(address,address)"(
+      strategy: string,
+      to: string,
+      overrides?: PayableOverrides
+    ): Promise<ContractTransaction>;
+
+    depositETHAsset(
       assetId: BigNumberish,
       to: string,
       overrides?: PayableOverrides
     ): Promise<ContractTransaction>;
 
-    "depositETH(uint256,address)"(
+    "depositETHAsset(uint256,address)"(
       assetId: BigNumberish,
       to: string,
       overrides?: PayableOverrides
@@ -664,29 +727,29 @@ export class YieldBox extends Contract {
       assetId: BigNumberish,
       share: BigNumberish,
       roundUp: boolean,
-      overrides?: Overrides
-    ): Promise<ContractTransaction>;
+      overrides?: CallOverrides
+    ): Promise<[BigNumber] & { amount: BigNumber }>;
 
     "toAmount(uint256,uint256,bool)"(
       assetId: BigNumberish,
       share: BigNumberish,
       roundUp: boolean,
-      overrides?: Overrides
-    ): Promise<ContractTransaction>;
+      overrides?: CallOverrides
+    ): Promise<[BigNumber] & { amount: BigNumber }>;
 
     toShare(
       assetId: BigNumberish,
       amount: BigNumberish,
       roundUp: boolean,
-      overrides?: Overrides
-    ): Promise<ContractTransaction>;
+      overrides?: CallOverrides
+    ): Promise<[BigNumber] & { share: BigNumber }>;
 
     "toShare(uint256,uint256,bool)"(
       assetId: BigNumberish,
       amount: BigNumberish,
       roundUp: boolean,
-      overrides?: Overrides
-    ): Promise<ContractTransaction>;
+      overrides?: CallOverrides
+    ): Promise<[BigNumber] & { share: BigNumber }>;
 
     totalShares(
       arg0: BigNumberish,
@@ -869,6 +932,30 @@ export class YieldBox extends Contract {
   ): Promise<ContractTransaction>;
 
   deposit(
+    standard: BigNumberish,
+    contractAddress: string,
+    strategy: string,
+    tokenId: BigNumberish,
+    from: string,
+    to: string,
+    amount: BigNumberish,
+    share: BigNumberish,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
+  "deposit(uint96,address,address,uint256,address,address,uint256,uint256)"(
+    standard: BigNumberish,
+    contractAddress: string,
+    strategy: string,
+    tokenId: BigNumberish,
+    from: string,
+    to: string,
+    amount: BigNumberish,
+    share: BigNumberish,
+    overrides?: Overrides
+  ): Promise<ContractTransaction>;
+
+  depositAsset(
     assetId: BigNumberish,
     from: string,
     to: string,
@@ -877,7 +964,7 @@ export class YieldBox extends Contract {
     overrides?: Overrides
   ): Promise<ContractTransaction>;
 
-  "deposit(uint256,address,address,uint256,uint256)"(
+  "depositAsset(uint256,address,address,uint256,uint256)"(
     assetId: BigNumberish,
     from: string,
     to: string,
@@ -887,12 +974,24 @@ export class YieldBox extends Contract {
   ): Promise<ContractTransaction>;
 
   depositETH(
+    strategy: string,
+    to: string,
+    overrides?: PayableOverrides
+  ): Promise<ContractTransaction>;
+
+  "depositETH(address,address)"(
+    strategy: string,
+    to: string,
+    overrides?: PayableOverrides
+  ): Promise<ContractTransaction>;
+
+  depositETHAsset(
     assetId: BigNumberish,
     to: string,
     overrides?: PayableOverrides
   ): Promise<ContractTransaction>;
 
-  "depositETH(uint256,address)"(
+  "depositETHAsset(uint256,address)"(
     assetId: BigNumberish,
     to: string,
     overrides?: PayableOverrides
@@ -1110,29 +1209,29 @@ export class YieldBox extends Contract {
     assetId: BigNumberish,
     share: BigNumberish,
     roundUp: boolean,
-    overrides?: Overrides
-  ): Promise<ContractTransaction>;
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
 
   "toAmount(uint256,uint256,bool)"(
     assetId: BigNumberish,
     share: BigNumberish,
     roundUp: boolean,
-    overrides?: Overrides
-  ): Promise<ContractTransaction>;
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
 
   toShare(
     assetId: BigNumberish,
     amount: BigNumberish,
     roundUp: boolean,
-    overrides?: Overrides
-  ): Promise<ContractTransaction>;
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
 
   "toShare(uint256,uint256,bool)"(
     assetId: BigNumberish,
     amount: BigNumberish,
     roundUp: boolean,
-    overrides?: Overrides
-  ): Promise<ContractTransaction>;
+    overrides?: CallOverrides
+  ): Promise<BigNumber>;
 
   totalShares(
     arg0: BigNumberish,
@@ -1315,6 +1414,34 @@ export class YieldBox extends Contract {
     ): Promise<string>;
 
     deposit(
+      standard: BigNumberish,
+      contractAddress: string,
+      strategy: string,
+      tokenId: BigNumberish,
+      from: string,
+      to: string,
+      amount: BigNumberish,
+      share: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber, BigNumber] & { amountOut: BigNumber; shareOut: BigNumber }
+    >;
+
+    "deposit(uint96,address,address,uint256,address,address,uint256,uint256)"(
+      standard: BigNumberish,
+      contractAddress: string,
+      strategy: string,
+      tokenId: BigNumberish,
+      from: string,
+      to: string,
+      amount: BigNumberish,
+      share: BigNumberish,
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber, BigNumber] & { amountOut: BigNumber; shareOut: BigNumber }
+    >;
+
+    depositAsset(
       assetId: BigNumberish,
       from: string,
       to: string,
@@ -1325,7 +1452,7 @@ export class YieldBox extends Contract {
       [BigNumber, BigNumber] & { amountOut: BigNumber; shareOut: BigNumber }
     >;
 
-    "deposit(uint256,address,address,uint256,uint256)"(
+    "depositAsset(uint256,address,address,uint256,uint256)"(
       assetId: BigNumberish,
       from: string,
       to: string,
@@ -1337,6 +1464,22 @@ export class YieldBox extends Contract {
     >;
 
     depositETH(
+      strategy: string,
+      to: string,
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber, BigNumber] & { amountOut: BigNumber; shareOut: BigNumber }
+    >;
+
+    "depositETH(address,address)"(
+      strategy: string,
+      to: string,
+      overrides?: CallOverrides
+    ): Promise<
+      [BigNumber, BigNumber] & { amountOut: BigNumber; shareOut: BigNumber }
+    >;
+
+    depositETHAsset(
       assetId: BigNumberish,
       to: string,
       overrides?: CallOverrides
@@ -1344,7 +1487,7 @@ export class YieldBox extends Contract {
       [BigNumber, BigNumber] & { amountOut: BigNumber; shareOut: BigNumber }
     >;
 
-    "depositETH(uint256,address)"(
+    "depositETHAsset(uint256,address)"(
       assetId: BigNumberish,
       to: string,
       overrides?: CallOverrides
@@ -1823,6 +1966,30 @@ export class YieldBox extends Contract {
     ): Promise<BigNumber>;
 
     deposit(
+      standard: BigNumberish,
+      contractAddress: string,
+      strategy: string,
+      tokenId: BigNumberish,
+      from: string,
+      to: string,
+      amount: BigNumberish,
+      share: BigNumberish,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
+
+    "deposit(uint96,address,address,uint256,address,address,uint256,uint256)"(
+      standard: BigNumberish,
+      contractAddress: string,
+      strategy: string,
+      tokenId: BigNumberish,
+      from: string,
+      to: string,
+      amount: BigNumberish,
+      share: BigNumberish,
+      overrides?: Overrides
+    ): Promise<BigNumber>;
+
+    depositAsset(
       assetId: BigNumberish,
       from: string,
       to: string,
@@ -1831,7 +1998,7 @@ export class YieldBox extends Contract {
       overrides?: Overrides
     ): Promise<BigNumber>;
 
-    "deposit(uint256,address,address,uint256,uint256)"(
+    "depositAsset(uint256,address,address,uint256,uint256)"(
       assetId: BigNumberish,
       from: string,
       to: string,
@@ -1841,12 +2008,24 @@ export class YieldBox extends Contract {
     ): Promise<BigNumber>;
 
     depositETH(
+      strategy: string,
+      to: string,
+      overrides?: PayableOverrides
+    ): Promise<BigNumber>;
+
+    "depositETH(address,address)"(
+      strategy: string,
+      to: string,
+      overrides?: PayableOverrides
+    ): Promise<BigNumber>;
+
+    depositETHAsset(
       assetId: BigNumberish,
       to: string,
       overrides?: PayableOverrides
     ): Promise<BigNumber>;
 
-    "depositETH(uint256,address)"(
+    "depositETHAsset(uint256,address)"(
       assetId: BigNumberish,
       to: string,
       overrides?: PayableOverrides
@@ -2067,28 +2246,28 @@ export class YieldBox extends Contract {
       assetId: BigNumberish,
       share: BigNumberish,
       roundUp: boolean,
-      overrides?: Overrides
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     "toAmount(uint256,uint256,bool)"(
       assetId: BigNumberish,
       share: BigNumberish,
       roundUp: boolean,
-      overrides?: Overrides
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     toShare(
       assetId: BigNumberish,
       amount: BigNumberish,
       roundUp: boolean,
-      overrides?: Overrides
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     "toShare(uint256,uint256,bool)"(
       assetId: BigNumberish,
       amount: BigNumberish,
       roundUp: boolean,
-      overrides?: Overrides
+      overrides?: CallOverrides
     ): Promise<BigNumber>;
 
     totalShares(
@@ -2261,6 +2440,30 @@ export class YieldBox extends Contract {
     ): Promise<PopulatedTransaction>;
 
     deposit(
+      standard: BigNumberish,
+      contractAddress: string,
+      strategy: string,
+      tokenId: BigNumberish,
+      from: string,
+      to: string,
+      amount: BigNumberish,
+      share: BigNumberish,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    "deposit(uint96,address,address,uint256,address,address,uint256,uint256)"(
+      standard: BigNumberish,
+      contractAddress: string,
+      strategy: string,
+      tokenId: BigNumberish,
+      from: string,
+      to: string,
+      amount: BigNumberish,
+      share: BigNumberish,
+      overrides?: Overrides
+    ): Promise<PopulatedTransaction>;
+
+    depositAsset(
       assetId: BigNumberish,
       from: string,
       to: string,
@@ -2269,7 +2472,7 @@ export class YieldBox extends Contract {
       overrides?: Overrides
     ): Promise<PopulatedTransaction>;
 
-    "deposit(uint256,address,address,uint256,uint256)"(
+    "depositAsset(uint256,address,address,uint256,uint256)"(
       assetId: BigNumberish,
       from: string,
       to: string,
@@ -2279,12 +2482,24 @@ export class YieldBox extends Contract {
     ): Promise<PopulatedTransaction>;
 
     depositETH(
+      strategy: string,
+      to: string,
+      overrides?: PayableOverrides
+    ): Promise<PopulatedTransaction>;
+
+    "depositETH(address,address)"(
+      strategy: string,
+      to: string,
+      overrides?: PayableOverrides
+    ): Promise<PopulatedTransaction>;
+
+    depositETHAsset(
       assetId: BigNumberish,
       to: string,
       overrides?: PayableOverrides
     ): Promise<PopulatedTransaction>;
 
-    "depositETH(uint256,address)"(
+    "depositETHAsset(uint256,address)"(
       assetId: BigNumberish,
       to: string,
       overrides?: PayableOverrides
@@ -2508,28 +2723,28 @@ export class YieldBox extends Contract {
       assetId: BigNumberish,
       share: BigNumberish,
       roundUp: boolean,
-      overrides?: Overrides
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     "toAmount(uint256,uint256,bool)"(
       assetId: BigNumberish,
       share: BigNumberish,
       roundUp: boolean,
-      overrides?: Overrides
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     toShare(
       assetId: BigNumberish,
       amount: BigNumberish,
       roundUp: boolean,
-      overrides?: Overrides
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     "toShare(uint256,uint256,bool)"(
       assetId: BigNumberish,
       amount: BigNumberish,
       roundUp: boolean,
-      overrides?: Overrides
+      overrides?: CallOverrides
     ): Promise<PopulatedTransaction>;
 
     totalShares(
