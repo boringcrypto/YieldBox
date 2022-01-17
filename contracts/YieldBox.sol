@@ -495,7 +495,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         if (to.isContract()) {
             require(
                 IERC1155TokenReceiver(to).onERC1155Received(msg.sender, from, assetId, share, data) ==
-                    bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)")),
+                    0xf23a6e61 /*bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)")) */,
                 "Wrong return value"
             );
         }
@@ -514,7 +514,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         if (to.isContract()) {
             require(
                 IERC1155TokenReceiver(to).onERC1155BatchReceived(msg.sender, from, assetIds_, shares_, data) ==
-                    bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)")),
+                    0xbc197c81 /* bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)")) */,
                 "Wrong return value"
             );
         }
@@ -601,7 +601,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
 
     // ERC1155 bloat we have to include to be able to receive ERC1155 tokens.
     function onERC1155Received(address, address, uint256, uint256, bytes calldata) external override returns (bytes4) {
-        return bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"));
+        return 0xf23a6e61; //bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))
     }
 
     function onERC1155BatchReceived(
@@ -611,6 +611,6 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         uint256[] calldata,
         bytes calldata
     ) external override returns (bytes4) {
-        return bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"));
+        return 0xbc197c81; //bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))
     }
 }

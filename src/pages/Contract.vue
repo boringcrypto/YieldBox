@@ -1,36 +1,48 @@
 <template>
-    <b-form-select v-model="function_selected" class="mb-3">
-        <b-form-select-option-group label="Views">
-            <b-form-select-option v-for="f in functions.filter(f => f.func.stateMutability == 'view')" :value="f.key" :key="f.key">{{ f.key }}</b-form-select-option>                    
-        </b-form-select-option-group>
-        <b-form-select-option-group label="Calls">
-            <b-form-select-option v-for="f in functions.filter(f => f.func.stateMutability != 'view')" :value="f.key" :key="f.key">{{ f.key }}</b-form-select-option>                    
-        </b-form-select-option-group>
-    </b-form-select>
+        <div>
+            <b-form-select v-model="function_selected" class="mb-3">
+                <b-form-select-option-group label="Views">
+                    <b-form-select-option v-for="f in functions.filter(f => f.func.stateMutability == 'view')" :value="f.key" :key="f.key">{{ f.key }}</b-form-select-option>                    
+                </b-form-select-option-group>
+                <b-form-select-option-group label="Calls">
+                    <b-form-select-option v-for="f in functions.filter(f => f.func.stateMutability != 'view')" :value="f.key" :key="f.key">{{ f.key }}</b-form-select-option>                    
+                </b-form-select-option-group>
+            </b-form-select>
 
-    <div v-if="yieldbox && yieldbox.interface && func">
-        <b-card>
-            <div v-for="(input, i) in func.func.inputs" :key="input.name">
-                <label>{{ input.baseType }}</label>
-                <b-form-input :ref="func.key + '|' + i" :placeholder="input.name"></b-form-input>
+            <div v-if="yieldbox && yieldbox.interface && func">
+                <b-card>
+                    <div v-for="(input, i) in func.func.inputs" :key="input.name">
+                        <label>{{ input.baseType }}</label>
+                        <div v-if="input.baseType == 'address'" class="row">
+                            <div class="col-10">
+                                <b-form-input v-model="args[func.key + '|' + i]" :placeholder="input.name"></b-form-input>
+                            </div>
+                            <div class="col-2">
+                                <b-dropdown id="dropdown-1">
+                                    <b-dropdown-item v-for="a in hardhat.accounts" @click="args[func.key + '|' + i] = a.name" :key="a.name">{{ a.name }}</b-dropdown-item>
+                                    <b-dropdown-item @click="args[func.key + '|' + i] = 'YieldBox'">YieldBox</b-dropdown-item>
+                                </b-dropdown>
+                            </div>
+                        </div>
+                        <b-form-input v-else v-model="args[func.key + '|' + i]" :placeholder="input.name"></b-form-input>
+                    </div>
+                    <div v-if="func.func.stateMutability == 'payable'">
+                        <label>ETH value</label>
+                        <b-form-input :ref="func.key + '|value'"></b-form-input>
+                    </div>
+                    <div v-if="func.func.stateMutability == 'view'">
+                        <b-button class="mt-3" @click="read(func)">Read</b-button>
+                    </div>
+                    <div v-if="func.func.stateMutability != 'view'" class="mt-3">
+                        <label>Account</label>
+                        <b-form-select v-model="account">
+                            <b-form-select-option v-for="a, i in hardhat.accounts" :key="a.address" :value="i">{{ a.name }}</b-form-select-option>
+                        </b-form-select>
+                        <b-button class="mt-3" @click="read(func)">Call</b-button>
+                    </div>
+                </b-card>
             </div>
-            <div v-if="func.func.stateMutability == 'payable'">
-                <label>ETH value</label>
-                <b-form-input :ref="func.key + '|value'"></b-form-input>
-            </div>
-            <b-button class="mt-3" @click="read(func)">Read</b-button>
-        </b-card>
-    </div>
-    <span v-if="info.chainId == 0">
-        Network not connected
-    </span>
-    <span v-else-if="!info.address">
-        <button @click="info.connect">Connect Metamask</button>
-    </span>
-    <span v-else>
-        <strong>Your wallet address</strong><br>
-        {{ info.address }}
-    </span>
+        </div>
 </template>
 
 <script lang="ts">
@@ -39,7 +51,6 @@ import { ProviderInfo } from "../classes/ProviderInfo"
 import { constants } from "../constants/development"
 
 import Countdown from "../components/Countdown.vue"
-import { YieldBox, YieldBox__factory } from "../../types/ethers-contracts"
 import { FunctionFragment } from "ethers/lib/utils"
 import { ethers } from "ethers"
 

@@ -6,15 +6,18 @@ import App from "./App.vue"
 import "bootswatch/dist/sandstone/bootstrap.min.css"
 import 'bootstrap-vue-3/dist/bootstrap-vue-3.css'
 import "./scss/main.scss"
-import "bootstrap/dist/js/bootstrap.bundle.min.js"
 import Web3 from "./classes/Web3"
 import Home from "./pages/Home.vue"
 import Contract from "./pages/Contract.vue"
 import HardhatProvider from "./classes/HardhatProvider"
+import { data, TestData } from "./classes/TestData"
 
 declare module '@vue/runtime-core' {
     interface ComponentCustomProperties  {
-         web3: Web3
+         web3: Web3,
+         hardhat: HardhatProvider,
+         now: Date,
+         data: TestData
     }
 }
 
@@ -44,6 +47,7 @@ let app = createApp(App)
 app.config.globalProperties.web3 = web3
 app.config.globalProperties.hardhat = hardhat
 app.config.globalProperties.now = now
+app.config.globalProperties.data = data
 
 app.use(router)
 app.use(BootstrapVue)

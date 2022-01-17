@@ -1,0 +1,34 @@
+# Contract factories
+Solidity contracts in the project get corresponding TypeScript bindings that include a
+contract factory for each contract. By registering these in code they can be deployed
+from the UI.
+- Register contract factories in code
+
+Contracts
+- Register contracts in UI, stored in localstorage
+- Attach to existing (with address and ABI)
+- Create new (using one of the registered contract factories)
+- Give unique name
+
+# Watch calls
+Watch calls are calls such as totalSupply or balanceOf(alice) that are useful to track
+while testing and can also be used to track the effect of contract calls made, so those
+changes can be included in tests.
+- Register watch calls in UI, stored in localstorage
+- 
+
+#Actions
+Fixtures and test cases are constructed from actions:
+- Go to fixture - fixture name
+- Deploy contract - constructor parameters + unique name
+- Attach contract - address + ABI (auto fetched from Etherscan?)
+- Contract call - function + arguments
+Address arguments can be filled with contract names or user names (Alice, Bob, etc)
+
+# Fixtures
+A series of actions that bring the chain to a fixed state
+
+# Test
+A series of actions and for each action:
+- List of events to check for
+- List of watch calls to check after execution

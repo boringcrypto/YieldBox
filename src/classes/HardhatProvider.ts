@@ -5,6 +5,8 @@ class NamedWallet extends ethers.Wallet {
     name="" as String
 }
 
+export type WalletName = "Alice" | "Bob" | "Carol" | "Dirk" | "Erin" | "Fred"
+
 export default class HardhatProvider {
     provider: ethers.providers.JsonRpcProvider
     alice: NamedWallet
