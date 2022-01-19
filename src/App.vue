@@ -1,30 +1,16 @@
 <template>
-    <b-nav>
-        <b-nav-item>Home</b-nav-item>
-    </b-nav>
-    <Home></Home>
-
-    <span v-if="web3.chainId == 0">
-        Network not connected
-    </span>
-    <span v-else-if="!web3.address">
-        <button @click="web3.connect">Connect Metamask</button>
-    </span>
-    <span v-else>
-        <strong>Your {{ web3.network.chainName }} address</strong><br>
-        {{ web3.address }}
-    </span>
-
+    <nav-bar></nav-bar>
+    <router-view class="mt-3"></router-view>
 </template>
 
 <script lang="ts">
 import {defineComponent} from "vue"
-import Home from "./pages/Home.vue"
+import NavBar from "./components/NavBar.vue"
 
 export default defineComponent({
     name: "App",
     components: {
-        Home,
+        NavBar
     },
     setup: () => {
         return {

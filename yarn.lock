@@ -2899,6 +2899,11 @@ body-parser@1.19.1:
     raw-body "2.4.2"
     type-is "~1.6.18"
 
+bootstrap-icons@^1.7.2:
+  version "1.7.2"
+  resolved "https://registry.yarnpkg.com/bootstrap-icons/-/bootstrap-icons-1.7.2.tgz#4024e081e2c850602552e1fed6451e682d09322a"
+  integrity sha512-NiR2PqC73AQOPdVSu6GJfnk+hN2z6powcistXk1JgPnKuoV2FSdSl26w931Oz9HYbKCcKUSB6ncZTYJAYJl3QQ==
+
 bootstrap-vue-3@^0.1.0:
   version "0.1.0"
   resolved "https://registry.yarnpkg.com/bootstrap-vue-3/-/bootstrap-vue-3-0.1.0.tgz#363dd24d4f8109eb341ce54758fb5bc02d5405db"

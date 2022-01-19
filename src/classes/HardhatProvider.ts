@@ -1,13 +1,14 @@
-import { ethers } from "ethers";
-import { markRaw } from "vue";
+import { BigNumber, ethers } from "ethers";
+import { BlockWithTransactions } from "ethers/node_modules/@ethersproject/abstract-provider";
+import { computed, markRaw, reactive } from "vue";
 
 class NamedWallet extends ethers.Wallet {
     name="" as String
 }
 
-export type WalletName = "Alice" | "Bob" | "Carol" | "Dirk" | "Erin" | "Fred"
+type WalletName = "Alice" | "Bob" | "Carol" | "Dirk" | "Erin" | "Fred"
 
-export default class HardhatProvider {
+class HardhatProvider {
     provider: ethers.providers.JsonRpcProvider
     alice: NamedWallet
     bob: NamedWallet
@@ -17,6 +18,11 @@ export default class HardhatProvider {
     fred: NamedWallet
     accounts: NamedWallet[]
     named_accounts
+    block = reactive({
+        number: 0
+    })
+    blocks: { [number: number]: BlockWithTransactions} = reactive({})
+    txs: { [txhash: string]: ethers.providers.TransactionResponse} = reactive({})
 
     constructor() {
         const mnemonic = "test test test test test test test test test test test junk"
@@ -36,6 +42,33 @@ export default class HardhatProvider {
             "Erin": this.erin,
             "Fred": this.fred
         }
+
+        this.provider.on("block", async (number: number) => {
+            await this.getBlock(number)
+            this.block.number = number
+        })
+    }
+
+    async getBlock(number: string | number) {
+        if (typeof(number) == "string") {
+            number = parseInt(number)
+        }
+        let block = this.blocks[number]
+        if (!block) {
+            block = await this.provider.getBlockWithTransactions(number)
+            this.blocks[number] = block
+            for(const hash in block.transactions) {
+                const tx = block.transactions[hash]
+                this.txs[tx.hash] = tx
+            }
+        }
+        return block
     }
 }
 
+const hardhat = reactive(new HardhatProvider())
+
+export {
+    HardhatProvider,
+    hardhat
+}

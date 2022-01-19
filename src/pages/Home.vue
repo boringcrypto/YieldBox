@@ -2,8 +2,10 @@
     <div class="row">
         <div class="mx-auto" style="max-width: 800px">
             <h2>Contracts</h2>
-            -<br>
-            -<br>
+            <div v-for="contract in data.contracts" :key="contract.params.name">
+                {{ contract.params.name }} {{ contract.params.address }} <b-icon icon="trash" @click="contract.delete()"></b-icon>
+            </div>
+
             <h2>Add contract</h2>
             <b-form-select v-model="factory_name">
                 <template v-for="(factory, key) in data.factories" :key="key">
@@ -14,50 +16,45 @@
             </b-form-select>
             <b-card v-if="factory && factory.bytecode" class="mt-3">
                 <h3>Deploy new {{ factory_name.substring(0, factory_name.length - 9) }}</h3>
+                <label>Contract deployment name</label>
+                <b-form-input v-model="contract_name"></b-form-input>
                 <template v-if="contract_constructor">
                     <div v-for="(input, i) in contract_constructor.inputs" :key="input">
-                        {{ input.type }}
+                        <label>{{ input.type }}</label>
                         <contract-input v-model="args[factory_name + '|' + i]" :input="input"></contract-input>
                     </div>
                 </template>
-                <b-button @click="deploy">Deploy</b-button>
+                <b-button @click="deploy" class="mt-3">Deploy</b-button>
             </b-card>
         </div>
     </div>
-    {{ args }}
 </template>
 
 <script lang="ts">
-import {computed, defineComponent, getCurrentInstance, ref, shallowRef } from "@vue/runtime-core"
-import { constants } from "../constants/development"
-
-import Countdown from "../components/Countdown.vue"
+import {computed, defineComponent, ref } from "@vue/runtime-core"
 import ContractInput from "../components/ContractInput.vue"
-import { FunctionFragment } from "ethers/lib/utils"
-import { ContractFactory, ethers } from "ethers"
-import { WalletName } from "../classes/HardhatProvider"
-import { data, TestContract } from "../classes/TestData"
-import { YieldBox__factory } from "../../typechain-types"
+import { data, setup, TestContract } from "../classes/Test"
 
 export default defineComponent({
     name: "Home",
     components: {
-        Countdown,
         ContractInput
     },
-    watch: {
-        'web3.update': function() {
-            console.log("Block", this.web3.block)
-        }
-    },
     methods: {
+        delete_contract: function(name: string) {
+            delete setup.contracts[name]
+        },
         deploy: async function() {
-            const contract = new TestContract("test", this.factory_name, [], null)
-            await contract.create(this.hardhat.alice)
-            console.log(contract.contract?.address)
+            await new TestContract({
+                name: this.contract_name, 
+                factoryOrAbi: this.factory_name, 
+                args: this.constructor_args,
+                address: null
+            }).create(this.hardhat.alice)
         }
     },   
     setup() {
+        const args = ref({})
         const factory_name = ref("")
         const factory = computed(function() {
             return data.factories[factory_name.value as "YieldBox__factory"];
@@ -68,13 +65,17 @@ export default defineComponent({
         const contract_constructor = computed(function() {
             return factory_interface.value?.fragments.filter(f => f?.type == "constructor")[0]
         })
-        const args = ref({})
+        const constructor_args = computed(function() {
+            return contract_constructor.value?.inputs.map((input, i) => (args.value as any)[factory_name.value + "|" + i])
+        })
         return {
+            args,
             factory_name,
             factory,
             factory_interface,
             contract_constructor,
-            args
+            constructor_args,
+            contract_name: ref("")
         }
     }
 })

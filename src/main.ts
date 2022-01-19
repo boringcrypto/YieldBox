@@ -2,15 +2,22 @@ import { createApp, reactive, ref, Ref } from "vue"
 import { createRouter, createWebHashHistory } from "vue-router"
 import BootstrapVue from "bootstrap-vue-3"
 
-import App from "./App.vue"
 import "bootswatch/dist/sandstone/bootstrap.min.css"
 import 'bootstrap-vue-3/dist/bootstrap-vue-3.css'
 import "./scss/main.scss"
 import Web3 from "./classes/Web3"
+
 import Home from "./pages/Home.vue"
-import Contract from "./pages/Contract.vue"
-import HardhatProvider from "./classes/HardhatProvider"
-import { data, TestData } from "./classes/TestData"
+import Block from "./pages/Block.vue"
+
+import { HardhatProvider, hardhat } from "./classes/HardhatProvider"
+import { data, deploy, setup, TestData } from "./classes/Test"
+
+declare global {
+    interface Window {
+        app: any
+    }
+}
 
 declare module '@vue/runtime-core' {
     interface ComponentCustomProperties  {
@@ -23,7 +30,7 @@ declare module '@vue/runtime-core' {
 
 const routes = [
     { path: '/', component: Home },
-    { path: '/contract/:address', component: Contract }    
+    { path: '/block/:number', component: Block },
 ]
   
 const router = createRouter({
@@ -40,16 +47,20 @@ window.setInterval(
 const web3 = reactive(new Web3())
 web3.setup()
 
-const hardhat = reactive(new HardhatProvider())
+deploy(hardhat.alice)
 
+import App from "./App.vue"
 let app = createApp(App)
 
 app.config.globalProperties.web3 = web3
 app.config.globalProperties.hardhat = hardhat
 app.config.globalProperties.now = now
 app.config.globalProperties.data = data
+app.config.globalProperties.setup = setup
 
 app.use(router)
 app.use(BootstrapVue)
 app.mount("#app")
+
+window.app = app
 
