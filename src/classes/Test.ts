@@ -1,79 +1,146 @@
-import { Contract, ContractFactory, Signer } from "ethers"
-import { reactive, toRaw } from "vue"
+import { ContractFactory, ethers } from "ethers"
+import { markRaw, reactive } from "vue"
 import * as factories from "../../typechain-types"
+import { BaseFactory } from "./FactoryInterface"
+import { hardhat } from "./HardhatProvider"
 
-interface IContract {
+interface IAddressInfo {
+    address: string
+    type: "wallet" | "contract" | "miner"
     name: string
-    factoryOrAbi: string
+    object: ethers.Wallet | null
+}
+
+type StepType = "deploy" | "attach" | "call"
+
+interface IStep {
+    type: StepType
+    user: string
+}
+
+interface IDeployStep extends IStep {
+    name: string
+    factory: string
     args: any[]
-    address: string | null
 }
 
-interface TestSetup {
-    contracts: { [name: string]: IContract}
+interface IAttachStep extends IStep {
+    name: string
+    address: string
+    abi: string
 }
 
-class TestData {
-    factories = toRaw(factories)
-    contracts = {} as { [name: string]: TestContract }
-    contractByAddress = {} as { [address: string]: TestContract }
+interface ICallStep extends IStep {
+    contract: string
+    method: string
+    args: any[]
 }
 
-let setup: TestSetup
-setup = reactive(JSON.parse(window.localStorage.getItem("setup") || "null") as TestSetup || {
-    contracts: {}
-})
+class Step {
+    info: IStep
+    script: Script
 
-function save() {
-    window.localStorage.setItem("setup", JSON.stringify(setup))
-}
+    constructor(info: IStep, script: Script) {
+        this.info = info
+        this.script = script
+    }
 
-const data = reactive(new TestData())
+    async run() {
+        const signer = hardhat.getAccount(this.info.user)
 
-class TestContract {
-    params: IContract
-    contract = null as Contract | null
+        if (this.info.type == "deploy") {
+            const deploy_info = this.info as IDeployStep
+            // @ts-ignore
+            const contract = await (new this.factories[deploy_info.factory](signer) as ContractFactory)
+                .deploy(...deploy_info.args)
+            await contract.deployed()
 
-    constructor(params: IContract) {
-        this.params = reactive(Object.assign({}, params))
-        if (!setup.contracts[params.name]) {
-            setup.contracts[params.name] = params
-            save()
+            this.script.contracts[deploy_info.name] = markRaw(contract)
+
+            test.addresses[contract.address] = {
+                address: contract.address,
+                type: "contract",
+                name: deploy_info.name,
+                object: null
+            }
         }
-        data.contracts[params.name] = this
+
+        if (this.info.type == "call") {
+            const call_info = this.info as ICallStep
+            const contract = this.script.contracts[call_info.contract]
+            const tx = await contract.functions[call_info.method](...call_info.args)
+        }
+
+        test.save()
+    }
+}
+
+class Script {
+    steps: IStep[]
+    contracts: { [name: string]: ethers.Contract } = reactive({})
+
+    constructor(steps: IStep[]) {
+        this.steps = reactive(steps)
     }
 
-    async create(signer: Signer) {
-        if (this.params.factoryOrAbi.endsWith("__factory")) {
-            this.contract = toRaw(await (new data.factories[this.params.factoryOrAbi as "YieldBox__factory"](signer) as ContractFactory)
-                .deploy(...this.params.args))
-            await this.contract.deployed()
-            console.log(this.contract.deployTransaction)
-            this.params.address = this.contract.address   
-            data.contractByAddress[this.contract.address] = this
-        } else {
-            this.contract = new Contract(this.params.address!, this.params.factoryOrAbi)
+    async run() {
+        for(let i in this.steps) {
+            const step = new Step(this.steps[i], this)
+            await step.run()
         }
     }
 
-    delete() {
-        console.log("Deleting")
-        delete setup.contracts[this.params.name]
-        delete data.contracts[this.params.name]
-        save()
+    async add(step_info: IStep) {
+        this.steps.push(step_info)
+        const step = new Step(step_info, this)
+        await step.run()
     }
 }
 
-async function deploy(signer: Signer) {
-    for (const contract_name in setup.contracts) {
-        await new TestContract(setup.contracts[contract_name]).create(signer)
-    }    
+type FactoryName = keyof typeof factories
+
+class TestManager {
+    script: Script
+    fixtureId: string = ""
+
+    factories = {} as { [name: string]: typeof BaseFactory }
+    addresses = {} as { [address: string]: IAddressInfo }
+    names = {} as { [name: string]: string }
+
+    constructor() {
+        this.script = new Script([])
+        for(let key in factories) {
+            // Filter out interfaces. Only factories with bytecode, that are deployable.
+            if(factories[key as FactoryName].hasOwnProperty("bytecode")) {
+                // @ts-ignore
+                this.factories[key.substring(0, key.length - 9)] = factories[key as FactoryName]
+            }
+        }
+    }
+
+    save() {
+        window.localStorage.setItem("setup", JSON.stringify(this.script.steps))
+    }
+
+    // Creates a snapshot as the initial state for the EVM
+    async init() {
+        this.fixtureId = await hardhat.provider.send("evm_snapshot", [])
+        console.log("Fixture created", this.fixtureId)
+    }
+    
+    // Resets the EVM to the initial state and moves the timestamp to now
+    async reset() {
+        await hardhat.provider.send("evm_revert", [this.fixtureId])
+        await hardhat.provider.send("evm_setNextBlockTimestamp", [Date.now() / 1000])
+    }
 }
+
+let test: TestManager = new TestManager()
 
 export {
-    TestContract,
-    TestData, 
-    data,
-    setup,
-    deploy
+    IDeployStep,
+    IAttachStep,
+    ICallStep,
+    TestManager,
+    test
 }

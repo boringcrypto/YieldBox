@@ -3,7 +3,7 @@
         <b-form-input type="text"
             :model-value="modelValue"
             @update:model-value="$emit('update:modelValue', $event)"
-            :placeholder="input.name">
+            :placeholder="input.type">
         </b-form-input>
     </div>
 </template>

@@ -9,9 +9,10 @@ import Web3 from "./classes/Web3"
 
 import Home from "./pages/Home.vue"
 import Block from "./pages/Block.vue"
+import Address from "./pages/Address.vue"
 
 import { HardhatProvider, hardhat } from "./classes/HardhatProvider"
-import { data, deploy, setup, TestData } from "./classes/Test"
+import { test, TestManager } from "./classes/Test"
 
 declare global {
     interface Window {
@@ -23,14 +24,15 @@ declare module '@vue/runtime-core' {
     interface ComponentCustomProperties  {
          web3: Web3,
          hardhat: HardhatProvider,
-         now: Date,
-         data: TestData
+         now: Ref<number>,
+         test: TestManager
     }
 }
 
 const routes = [
     { path: '/', component: Home },
     { path: '/block/:number', component: Block },
+    { path: '/address/:address', component: Address },
 ]
   
 const router = createRouter({
@@ -44,23 +46,37 @@ window.setInterval(
     1000
 );
 
-const web3 = reactive(new Web3())
-web3.setup()
+hardhat.accounts.forEach(account => {
+    test.addresses[account.address] = {
+        address: account.address,
+        type: "wallet",
+        name: account.name as string,
+        object: account
+    }
+})
 
-deploy(hardhat.alice)
+test.addresses["0xC014BA5EC014ba5ec014Ba5EC014ba5Ec014bA5E"] = {
+    address: "0xC014BA5EC014ba5ec014Ba5EC014ba5Ec014bA5E",
+    type: "miner",
+    name: "Hardhat Miner",
+    object: null
+}
 
 import App from "./App.vue"
-let app = createApp(App)
 
-app.config.globalProperties.web3 = web3
-app.config.globalProperties.hardhat = hardhat
-app.config.globalProperties.now = now
-app.config.globalProperties.data = data
-app.config.globalProperties.setup = setup
+async function main() {
+    let app = createApp(App)
 
-app.use(router)
-app.use(BootstrapVue)
-app.mount("#app")
+    app.config.globalProperties.hardhat = hardhat
+    app.config.globalProperties.now = now
+    app.config.globalProperties.test = test
+    
+    app.use(router)
+    app.use(BootstrapVue)
+    app.mount("#app")
+    
+    window.app = app    
+}
 
-window.app = app
+main()
 

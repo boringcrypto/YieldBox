@@ -11,14 +11,14 @@
         :hide-ellipsis="true"
       ></b-pagination>
             Hash: {{ block.hash }}<br>
-            Miner: {{ block.miner }}<br>
+            Miner: <address-link :address="block.miner" /><br>
             Nonce: {{ block.nonce }}<br>
             Extra Data: {{ block.extraData }}<br>
             GasLimit: {{ block.gasLimit.toString() }}<br>
             GasUsed: {{ block.gasUsed.toString() }}<br>
             Difficulty: {{ block.difficulty }}<br>
             Parent Hash: {{ block.parentHash }}<br>
-            Timestamp: {{ block.timestamp }}<br>
+            Timestamp: {{ new Intl.DateTimeFormat({} , {timeStyle: "short", dateStyle: "medium"}).format(block.timestamp * 1000) }} (<ago :timestamp="block.timestamp" />)<br>
 
             <h3 class="mt-3">Transactions</h3>
             <template v-for="tx in block.transactions" :key="tx.hash">
@@ -38,9 +38,13 @@
                         Index: {{ tx.transactionIndex }}<br>
                         Hash: {{ tx.hash }}<br>
                         Type: {{ tx.type }}<br>
-                        From: {{ tx.from }}<br>
-                        To: {{ tx.to }}<br>
-                        Creates: {{ tx.creates }}<br>
+                        From: <address-link :address="tx.from" /><br>
+                        <span v-if="tx.to">
+                            To: <address-link :address="tx.to" /><br>
+                        </span>
+                        <span v-if="tx.creates">
+                            Creates: <address-link :address="tx.creates" /><br>
+                        </span>
                         Nonce: {{ tx.nonce }}<br>
                         Gas Limit: {{ tx.gasLimit.toString() }}<br>
                         Gas Price: {{ tx.gasPrice.toString() }}<br>
@@ -61,9 +65,15 @@ import { defineComponent, ref } from "@vue/runtime-core"
 import { BlockWithTransactions } from "ethers/node_modules/@ethersproject/abstract-provider";
 import { useRoute } from "vue-router";
 import { hardhat } from "../classes/HardhatProvider"
+import AddressLink from "../components/AddressLink.vue";
+import Ago from "../components/Ago.vue";
 
 export default defineComponent({
     name: "Block",
+    components: {
+        AddressLink,
+        Ago
+    },
     methods: {
         'load': async function() {
             this.block = await hardhat.getBlock(this.current_block)
