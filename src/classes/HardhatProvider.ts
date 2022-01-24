@@ -6,8 +6,6 @@ class NamedWallet extends ethers.Wallet {
     name="" as String
 }
 
-type WalletName = "Alice" | "Bob" | "Carol" | "Dirk" | "Erin" | "Fred"
-
 class HardhatProvider {
     provider: ethers.providers.JsonRpcProvider
     deployer: NamedWallet
@@ -75,7 +73,10 @@ class HardhatProvider {
 
 const hardhat = reactive(new HardhatProvider())
 
+type WalletName = keyof typeof hardhat.named_accounts
+
 export {
     HardhatProvider,
-    hardhat
+    hardhat,
+    WalletName
 }

@@ -14,6 +14,9 @@ export default defineComponent({
         NavBar
     },
     setup: () => {
+        // async running of the script
+        test.activate()
+
         return {
         }
     },

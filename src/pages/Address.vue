@@ -5,8 +5,8 @@
                 <span v-if="info">
                     <b-icon v-if="info.type == 'wallet'" class="me-1" icon="wallet" />
                     <b-icon v-if="info.type == 'contract'" class="me-1" icon="file-text" />
-                    <span v-if="data.addresses[address].type == 'miner'" class="me-1">👷</span>
-                    {{ data.addresses[address].name }}
+                    <span v-if="test.addresses[address].type == 'miner'" class="me-1">👷</span>
+                    {{ test.addresses[address].name }}
                 </span>
                 <span v-else>{{ address }}</span>
             </h2>
@@ -26,8 +26,7 @@
 <script lang="ts">
 import { BigNumber } from "@ethersproject/bignumber";
 import { defineComponent, ref } from "@vue/runtime-core"
-import { BlockWithTransactions } from "ethers/node_modules/@ethersproject/abstract-provider";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 import { hardhat } from "../classes/HardhatProvider"
 import { test } from "../classes/Test";
 import AddressLink from "../components/AddressLink.vue";
@@ -41,9 +40,7 @@ export default defineComponent({
     },
     methods: {
         load: async function() {
-            console.log(this.address)
             this.info = test.addresses[this.address as string]
-            console.log("Loading")
             this.detail.ethBalance = await hardhat.provider.getBalance(this.address)
         }
     },
