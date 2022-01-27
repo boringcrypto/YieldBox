@@ -153,7 +153,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         totalShares_ = totalShares_.add(1e8);
 
         // Calculte the amount using te current amount to share ratio
-        amount = share.mul(totalShares_) / totalAmount;
+        amount = share.mul(totalAmount) / totalShares_;
 
         // Default is to round down (Solidity), round up if required
         if (roundUp && amount.mul(totalShares_) / totalAmount < share) {
@@ -221,8 +221,8 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
             require(strategy == IStrategy(0) || (standard == strategy.standard() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()), "YieldBox: Strategy mismatch");
 
             // Effects
-            assets.push(Asset(standard, contractAddress, strategy, tokenId));
             assetId = assets.length;
+            assets.push(Asset(standard, contractAddress, strategy, tokenId));
             ids[standard][contractAddress][strategy][tokenId] = assetId;
         }
     }

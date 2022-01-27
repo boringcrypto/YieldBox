@@ -4,7 +4,7 @@ import * as factories from "../../typechain-types"
 import { BaseFactory } from "./FactoryInterface"
 import { CallError, hardhat, WalletName } from "./HardhatProvider"
 import { TransactionResponse } from "@ethersproject/abstract-provider"
-import { LogDescription } from "ethers/lib/utils"
+import { FunctionFragment, LogDescription, ParamType } from "ethers/lib/utils"
 
 interface IAddressInfo {
     address: string
@@ -40,6 +40,22 @@ interface ICallStep extends IStep {
     value: string
 }
 
+function call_args(args: any[], inputs: ParamType[]) {
+    const args_out = []
+    for (const i in inputs || []) {
+        const input = inputs[i]
+        if (input.type === "address") {
+            args_out.push(
+                test.lookupName(args[i])?.address ||
+                args[i]
+            )
+        } else {
+            args_out.push(args[i])
+        }
+    }
+    return args_out
+}
+
 class Step {
     info: IStep
     script: Script
@@ -71,7 +87,7 @@ class Step {
             const deploy_info = this.info as IDeployStep
             // @ts-ignore
             const factory = new test.factories[deploy_info.factory](signer) as ContractFactory
-            const contract = await factory.deploy(...deploy_info.args)
+            const contract = await factory.deploy(...call_args(deploy_info.args, factory.interface.fragments.filter(f => f?.type == "constructor")[0]?.inputs))
             await contract.deployed()
             const receipt = await hardhat.provider.getTransactionReceipt(contract.deployTransaction.hash)
             for(const i in receipt.logs) {
@@ -92,22 +108,10 @@ class Step {
             const call_info = this.info as ICallStep
             const contract = this.script.contracts[call_info.contract]
             const value = BigNumber.from(call_info.value || "0")
-            const call_args = []
-            for (const i in contract.interface.functions[call_info.method].inputs) {
-                const input = contract.interface.functions[call_info.method].inputs[i]
-                if (input.type === "address") {
-                    call_args.push(
-                        test.lookupName(call_info.args[i])?.address ||
-                        call_info.args[i]
-                    )
-                } else {
-                    call_args.push(call_info.args[i])
-                }
-            }
             try {
                 const tx: TransactionResponse = await contract
                     .connect(hardhat.named_accounts[call_info.user as WalletName])
-                    .functions[call_info.method](...call_args, {
+                    .functions[call_info.method](...call_args(call_info.args, contract.interface.functions[call_info.method].inputs), {
                         value: value,
                         gasLimit: 5000000
                     })
@@ -147,22 +151,10 @@ class Watch {
 
     async load() {
         const contract = this.script.contracts[this.info.contract]
-        const call_args = []
-        for (const i in contract.interface.functions[this.info.method].inputs) {
-            const input = contract.interface.functions[this.info.method].inputs[i]
-            if (input.type === "address") {
-                call_args.push(
-                    test.lookupName(this.info.args[i])?.address ||
-                    this.info.args[i]
-                )
-            } else {
-                call_args.push(this.info.args[i])
-            }
-        }
         try {
             this.result.raw = await contract
                 .connect(hardhat.named_accounts[this.info.user as WalletName])
-                .functions[this.info.method](...call_args, {
+                .functions[this.info.method](...call_args(this.info.args, contract.interface.functions[this.info.method].inputs), {
                     gasLimit: 5000000
                 })
         } catch (e) {
@@ -277,7 +269,7 @@ class TestManager {
         this.addNamedAddress({
             type: "zero",
             address: "0x0000000000000000000000000000000000000000",
-            name: "Zero Address",
+            name: "Zero",
             object: null
         })
     }
