@@ -25,7 +25,7 @@
 
 <script lang="ts">
 import { BigNumber } from "@ethersproject/bignumber";
-import { defineComponent, ref } from "@vue/runtime-core"
+import { computed, defineComponent, ref } from "@vue/runtime-core"
 import { useRoute } from "vue-router";
 import { hardhat } from "../classes/HardhatProvider"
 import { test } from "../classes/Test";
@@ -40,7 +40,6 @@ export default defineComponent({
     },
     methods: {
         load: async function() {
-            this.info = test.addresses[this.address as string]
             this.detail.ethBalance = await hardhat.provider.getBalance(this.address)
         }
     },
@@ -59,10 +58,13 @@ export default defineComponent({
         this.load()
     },
     setup() {
-        const address = useRoute().params.address as string
+        const address = ref(useRoute().params.address as string)
+        const info = computed(function() {
+            return test.lookupAddress(address.value)
+        })
         return {
             address,
-            info: ref(test.addresses[address]),
+            info,
             detail: ref({
                 ethBalance: BigNumber.from("0")
             })

@@ -1,12 +1,14 @@
-import { ContractFactory, ethers } from "ethers"
-import { markRaw, reactive } from "vue"
+import { BigNumber, ContractFactory, ethers } from "ethers"
+import { markRaw, reactive, Ref, ref } from "vue"
 import * as factories from "../../typechain-types"
 import { BaseFactory } from "./FactoryInterface"
-import { hardhat, WalletName } from "./HardhatProvider"
+import { CallError, hardhat, WalletName } from "./HardhatProvider"
+import { TransactionResponse } from "@ethersproject/abstract-provider"
+import { LogDescription } from "ethers/lib/utils"
 
 interface IAddressInfo {
     address: string
-    type: "wallet" | "contract" | "miner"
+    type: "wallet" | "contract" | "miner" | "zero"
     name: string
     object: ethers.Wallet | null
 }
@@ -22,6 +24,7 @@ interface IDeployStep extends IStep {
     name: string
     factory: string
     args: any[]
+    value: string
 }
 
 interface IAttachStep extends IStep {
@@ -34,57 +37,155 @@ interface ICallStep extends IStep {
     contract: string
     method: string
     args: any[]
+    value: string
 }
 
 class Step {
     info: IStep
     script: Script
+    response: TransactionResponse | null = null
+    logs: LogDescription[] = reactive([])
 
     constructor(info: IStep, script: Script) {
         this.info = info
         this.script = script
     }
 
+    static createDeploy(info: IDeployStep, script: Script) {
+        return new this(info, script)
+    }
+
+    static createAttach(info: IAttachStep, script: Script) {
+        return new this(info, script)
+    }
+
+    static createCall(info: ICallStep, script: Script) {
+        return new this(info, script)
+    }
+
     async run() {
+        this.logs.splice(0, this.logs.length)
         const signer = hardhat.getAccount(this.info.user)
 
         if (this.info.type == "deploy") {
             const deploy_info = this.info as IDeployStep
             // @ts-ignore
-            const contract = await (new test.factories[deploy_info.factory](signer) as ContractFactory)
-                .deploy(...deploy_info.args)
+            const factory = new test.factories[deploy_info.factory](signer) as ContractFactory
+            const contract = await factory.deploy(...deploy_info.args)
             await contract.deployed()
+            const receipt = await hardhat.provider.getTransactionReceipt(contract.deployTransaction.hash)
+            for(const i in receipt.logs) {
+                this.logs.push(factory.interface.parseLog(receipt.logs[i]))
+            }
 
             this.script.contracts[deploy_info.name] = markRaw(contract)
 
-            test.addresses[contract.address] = {
+            test.addNamedAddress({
                 address: contract.address,
                 type: "contract",
                 name: deploy_info.name,
                 object: null
-            }
-
-            console.log(deploy_info.name, contract.address)
+            })
         }
 
         if (this.info.type == "call") {
             const call_info = this.info as ICallStep
-            console.log(call_info)
             const contract = this.script.contracts[call_info.contract]
-            const tx = await contract.connect(hardhat.named_accounts[call_info.user as WalletName]).functions[call_info.method](...call_info.args)
-            console.log(tx)
+            const value = BigNumber.from(call_info.value || "0")
+            const call_args = []
+            for (const i in contract.interface.functions[call_info.method].inputs) {
+                const input = contract.interface.functions[call_info.method].inputs[i]
+                if (input.type === "address") {
+                    call_args.push(
+                        test.lookupName(call_info.args[i])?.address ||
+                        call_info.args[i]
+                    )
+                } else {
+                    call_args.push(call_info.args[i])
+                }
+            }
+            try {
+                const tx: TransactionResponse = await contract
+                    .connect(hardhat.named_accounts[call_info.user as WalletName])
+                    .functions[call_info.method](...call_args, {
+                        value: value,
+                        gasLimit: 5000000
+                    })
+                const response = await tx.wait()
+
+                for(const i in response.logs) {
+                    this.logs.push(this.script.contracts[call_info.contract].interface.parseLog(response.logs[i]))
+                }
+            } catch (e) {
+                console.log("error", (e as CallError).error)
+            }
         }
 
         test.save()
     }
 }
 
+interface IWatch {
+    user: string
+    contract: string
+    method: string
+    args: any[]
+}
+
+class Watch {
+    info: IWatch
+    script: Script
+    result = reactive({
+        raw: "loading..." as any,
+        display: "loading..."
+    })
+
+    constructor(info: IWatch, script: Script) {
+        this.info = info
+        this.script = script
+    }
+
+    async load() {
+        const contract = this.script.contracts[this.info.contract]
+        const call_args = []
+        for (const i in contract.interface.functions[this.info.method].inputs) {
+            const input = contract.interface.functions[this.info.method].inputs[i]
+            if (input.type === "address") {
+                call_args.push(
+                    test.lookupName(this.info.args[i])?.address ||
+                    this.info.args[i]
+                )
+            } else {
+                call_args.push(this.info.args[i])
+            }
+        }
+        try {
+            this.result.raw = await contract
+                .connect(hardhat.named_accounts[this.info.user as WalletName])
+                .functions[this.info.method](...call_args, {
+                    gasLimit: 5000000
+                })
+        } catch (e) {
+            console.log("error", (e as CallError).error, e)
+            this.result.raw = "Error"
+        }
+        this.result.display = this.result.raw.toString()
+    }
+}
+
 class Script {
-    steps: IStep[]
+    steps: Step[]
     contracts: { [name: string]: ethers.Contract } = reactive({})
+    watches: Watch[] = reactive([])
 
     constructor() {
         this.steps = reactive([])
+    }
+
+    async runWatches() {
+        for(let i in this.watches) {
+            await this.watches[i].load()
+        }
     }
 
     async run() {
@@ -92,19 +193,62 @@ class Script {
             delete this.contracts[key]
         }
         for(let i in this.steps) {
-            const step = new Step(this.steps[i], this)
-            await step.run()
+            await this.steps[i].run()
+        }
+        await this.runWatches()
+    }
+
+    load(data: { steps: IStep[], watches: IWatch[]  }) {
+        this.steps.splice(0, data.steps.length)
+        for(let i in data.steps) {
+            this.steps.push(new Step(data.steps[i], this))
+        }
+        this.watches.splice(0, this.watches.length)
+        for(let i in data.watches) {
+            this.watches.push(new Watch(data.watches[i], this))
         }
     }
 
-    async add(step_info: IStep) {
-        this.steps.push(step_info)
+    save() {
+        return {
+            steps: this.steps.map(s => s.info),
+            watches: this.watches.map(w =>w.info)
+        }
+    }
+
+    private async add(step_info: IStep) {
         const step = new Step(step_info, this)
+        this.steps.push(step)
         await step.run()
+    }
+
+    async addDeploy(step_info: IDeployStep) {
+        this.add(step_info)
+    }
+
+    async addAttach(step_info: IAttachStep) {
+        this.add(step_info)
+    }
+
+    async addCall(step_info: ICallStep) {
+        this.add(step_info)
+    }
+
+    async addWatch(watch_info: IWatch) {
+        const watch = new Watch(watch_info, this)
+        this.watches.push(watch)
+        test.save()
+        await watch.load()
     }
 
     async delete(index: number) {
         this.steps.splice(index, 1)
+
+        test.save()
+    }
+
+    async deleteWatch(index: number) {
+        this.watches.splice(index, 1)
 
         test.save()
     }
@@ -117,8 +261,8 @@ class TestManager {
     fixtureId: string = ""
 
     factories = {} as { [name: string]: typeof BaseFactory }
-    addresses = {} as { [address: string]: IAddressInfo }
-    names = {} as { [name: string]: string }
+    private addresses = {} as { [address: string]: IAddressInfo }
+    private names = {} as { [name: string]: IAddressInfo }
 
     constructor() {
         this.script = new Script()
@@ -129,14 +273,21 @@ class TestManager {
                 this.factories[key.substring(0, key.length - 9)] = factories[key as FactoryName]
             }
         }
+
+        this.addNamedAddress({
+            type: "zero",
+            address: "0x0000000000000000000000000000000000000000",
+            name: "Zero Address",
+            object: null
+        })
     }
 
     save() {
-        window.localStorage.setItem("test", JSON.stringify(this.script.steps))
+        window.localStorage.setItem("test", JSON.stringify(this.script.save()))
     }
 
     load() {
-        this.script.steps = reactive(JSON.parse(window.localStorage.getItem("test") || "[]"))
+        this.script.load(JSON.parse(window.localStorage.getItem("test") || "[]"))
     }
 
     // Creates a snapshot as the initial state for the EVM
@@ -157,6 +308,19 @@ class TestManager {
         await this.load()
         await this.reset()
         await this.script.run()
+    }
+
+    addNamedAddress(address: IAddressInfo) {
+        this.addresses[address.address.toLowerCase()] = address
+        this.names[address.name.toLowerCase()] = address
+    }
+
+    lookupName(name: string) {
+        return this.names[name.toLowerCase()]
+    }
+
+    lookupAddress(name: string) {
+        return this.addresses[name.toLowerCase()]
     }
 }
 

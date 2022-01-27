@@ -3,7 +3,7 @@ import { BlockWithTransactions } from "ethers/node_modules/@ethersproject/abstra
 import { computed, markRaw, reactive } from "vue";
 
 class NamedWallet extends ethers.Wallet {
-    name="" as String
+    name="" as string
 }
 
 class HardhatProvider {
@@ -75,8 +75,13 @@ const hardhat = reactive(new HardhatProvider())
 
 type WalletName = keyof typeof hardhat.named_accounts
 
+interface CallError extends Error {
+    error: string
+}
+
 export {
     HardhatProvider,
     hardhat,
-    WalletName
+    WalletName,
+    CallError
 }

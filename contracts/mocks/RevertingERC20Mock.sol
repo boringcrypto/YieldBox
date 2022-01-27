@@ -24,6 +24,7 @@ contract RevertingERC20Mock {
         decimals = decimals_;
         totalSupply = supply;
         balanceOf[msg.sender] = supply;
+        emit Transfer(address(0), msg.sender, supply);
     }
 
     function transfer(address to, uint256 amount) public returns (bool success) {

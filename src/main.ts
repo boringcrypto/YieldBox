@@ -42,20 +42,20 @@ function setupNow() {
 
 async function main() {
     hardhat.accounts.forEach(account => {
-        test.addresses[account.address] = {
+        test.addNamedAddress({
             address: account.address,
             type: "wallet",
-            name: account.name as string,
+            name: account.name,
             object: account
-        }
+        })
     })
     
-    test.addresses["0xC014BA5EC014ba5ec014Ba5EC014ba5Ec014bA5E"] = {
+    test.addNamedAddress({
         address: "0xC014BA5EC014ba5ec014Ba5EC014ba5Ec014bA5E",
         type: "miner",
         name: "Hardhat Miner",
         object: null
-    }    
+    })
 
     await test.init()
     await test.load()
