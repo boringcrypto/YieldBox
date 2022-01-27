@@ -1,4 +1,4 @@
-import { BigNumber, ContractFactory, ethers } from "ethers"
+import { BigNumber, Contract, ContractFactory, ethers } from "ethers"
 import { markRaw, reactive, Ref, ref } from "vue"
 import * as factories from "../../typechain-types"
 import { BaseFactory } from "./FactoryInterface"
@@ -10,7 +10,7 @@ interface IAddressInfo {
     address: string
     type: "wallet" | "contract" | "miner" | "zero"
     name: string
-    object: ethers.Wallet | null
+    object: ethers.Wallet | ethers.Contract | null
 }
 
 type StepType = "deploy" | "attach" | "call"
@@ -100,7 +100,7 @@ class Step {
                 address: contract.address,
                 type: "contract",
                 name: deploy_info.name,
-                object: null
+                object: markRaw(contract)
             })
         }
 
@@ -118,10 +118,33 @@ class Step {
                 const response = await tx.wait()
 
                 for(const i in response.logs) {
-                    this.logs.push(this.script.contracts[call_info.contract].interface.parseLog(response.logs[i]))
+                    const contract = test.lookupAddress(response.logs[i].address)?.object
+                    console.log(response.logs[i].address)
+                    if (contract instanceof Contract) {
+                        this.logs.push(contract.interface.parseLog(response.logs[i]))
+                    } else {
+                        this.logs.push({
+                            name: "Unknown",
+                            topic: response.logs[i].topics[0],
+                            signature: "unknown",
+                            args: response.logs[i].topics.slice(1),
+                            eventFragment: {
+                                anonymous: true,
+                                format: () => "",
+                                type: "topic",
+                                name: "Unknown",
+                                _isFragment: true,
+                                inputs: response.logs[i].topics.slice(1).map((topic, index) => ({
+                                    name: "Topic " + index,
+                                    type: "topic"
+                                } as ParamType))
+                            }
+
+                        })
+                    }
                 }
             } catch (e) {
-                console.log("error", (e as CallError).error)
+                console.log("error", (e as CallError).error, e)
             }
         }
 

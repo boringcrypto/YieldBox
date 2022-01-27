@@ -613,4 +613,6 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     ) external override returns (bytes4) {
         return 0xbc197c81; //bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))
     }
+
+    receive() external payable { }
 }
