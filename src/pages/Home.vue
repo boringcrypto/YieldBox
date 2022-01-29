@@ -31,6 +31,23 @@
                     <strong>{{ log.name }}</strong><br>
                     <event-table :inputs="log.eventFragment.inputs" :args="log.args" />
                 </div>
+
+                <h5 v-if="step.changes.length">Changes</h5>
+                <table v-if="step.changes.length" class="table">
+                    <tbody>
+                        <tr v-for="change in step.changes" :key="change">
+                            <td>
+                                {{ change.watch.info.contract }}.{{ change.watch.info.method.substring(0, change.watch.info.method.indexOf('(')) }}(<span v-for="(arg, i) in change.watch.info.args"><span v-if="i !== 0">, </span>{{ arg }}</span>)
+                            </td>
+                            <td>
+                                {{ change.old.display }}
+                            </td>
+                            <td>
+                                {{ change.new.display }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
             </b-card>
 
             <b-card no-body>

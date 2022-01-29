@@ -56,11 +56,50 @@ function call_args(args: any[], inputs: ParamType[]) {
     return args_out
 }
 
+function equal(a: any, b: any) {
+    if (typeof(a) !== typeof(b)) {
+        return false
+    }
+
+    if (a instanceof BigNumber && b instanceof BigNumber) {
+        return a.eq(b)
+    }
+
+    if (typeof(a) === "object") {
+        for(const i in a) {
+            if (!equal(a[i], b[i])) {
+                return false;
+            }
+        }
+        for(const i in b) {
+            if (!equal(a[i], b[i])) {
+                return false;
+            }
+        }
+        return true
+    }
+
+    return a === b
+}
+
+interface IWatchChange {
+    watch: Watch,
+    old: {
+        raw: any,
+        display: any
+    },
+    new: {
+        raw: any,
+        display: any
+    }
+}
+
 class Step {
     info: IStep
     script: Script
     response: TransactionResponse | null = null
     logs: LogDescription[] = reactive([])
+    changes: IWatchChange[] = reactive([])
 
     constructor(info: IStep, script: Script) {
         this.info = info
@@ -149,6 +188,8 @@ class Step {
         }
 
         test.save()
+
+        await this.script.runWatches(this)
     }
 }
 
@@ -172,19 +213,45 @@ class Watch {
         this.script = script
     }
 
-    async load() {
+    async load(step: Step | null) {
         const contract = this.script.contracts[this.info.contract]
-        try {
-            this.result.raw = await contract
-                .connect(hardhat.named_accounts[this.info.user as WalletName])
-                .functions[this.info.method](...call_args(this.info.args, contract.interface.functions[this.info.method].inputs), {
-                    gasLimit: 5000000
-                })
-        } catch (e) {
-            console.log("error", (e as CallError).error, e)
-            this.result.raw = "Error"
+        const old_raw = this.result.raw
+        const old_display = this.result.display
+
+        if (!contract) {
+            this.result.raw = "No contract"
         }
+        else {
+            try {
+                this.result.raw = await contract
+                    .connect(hardhat.named_accounts[this.info.user as WalletName])
+                    .functions[this.info.method](...call_args(this.info.args, contract.interface.functions[this.info.method].inputs), {
+                        gasLimit: 5000000
+                    })
+            } catch (e: any) {
+                console.log("error", (e as CallError).error, Object.keys(e.error || {}))
+                for(let key in e.error || {}) {
+                    console.log(key, e[key])
+                }
+                this.result.raw = "Error"
+            }    
+        }
+
         this.result.display = this.result.raw.toString()
+
+        if (step && old_raw != "No contract" && !equal(this.result.raw, old_raw)) {
+            step.changes.push({
+                watch: this,
+                old: {
+                    raw: old_raw,
+                    display: old_display
+                },
+                new: {
+                    raw: this.result.raw,
+                    display: this.result.display
+                }
+            })
+        }
     }
 }
 
@@ -197,9 +264,10 @@ class Script {
         this.steps = reactive([])
     }
 
-    async runWatches() {
+    async runWatches(step: Step | null) {
+        step?.changes.splice(0, step.changes.length) // empty changes
         for(let i in this.watches) {
-            await this.watches[i].load()
+            await this.watches[i].load(step)
         }
     }
 
@@ -207,10 +275,12 @@ class Script {
         for(const key in this.contracts) {
             delete this.contracts[key]
         }
+
+        await this.runWatches(null)
+
         for(let i in this.steps) {
             await this.steps[i].run()
         }
-        await this.runWatches()
     }
 
     load(data: { steps: IStep[], watches: IWatch[]  }) {
@@ -253,7 +323,7 @@ class Script {
         const watch = new Watch(watch_info, this)
         this.watches.push(watch)
         test.save()
-        await watch.load()
+        await watch.load(null)
     }
 
     async delete(index: number) {
