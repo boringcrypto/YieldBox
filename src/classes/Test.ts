@@ -255,6 +255,8 @@ class Watch {
     }
 }
 
+type ScriptData = { steps: IStep[], watches: IWatch[]  }
+
 class Script {
     steps: Step[]
     contracts: { [name: string]: ethers.Contract } = reactive({})
@@ -283,7 +285,7 @@ class Script {
         }
     }
 
-    load(data: { steps: IStep[], watches: IWatch[]  }) {
+    load(data: ScriptData) {
         this.steps.splice(0, data.steps.length)
         for(let i in data.steps) {
             this.steps.push(new Step(data.steps[i], this))
@@ -372,7 +374,15 @@ class TestManager {
     }
 
     load() {
-        this.script.load(JSON.parse(window.localStorage.getItem("test") || "[]"))
+        const json = window.localStorage.getItem("test")
+        if (json) {
+            this.script.load(JSON.parse(window.localStorage.getItem("test") || "null"))
+        } else {
+            this.script.load({
+                steps: [],
+                watches: []
+            })
+        }
     }
 
     // Creates a snapshot as the initial state for the EVM

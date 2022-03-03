@@ -1,5 +1,5 @@
 import { ProviderMessage, ProviderRpcError, ProviderConnectInfo } from 'hardhat/types';
-import { BigNumber, ethers } from "ethers"
+import { BigNumber, ethers, providers } from "ethers"
 import { computed, ComputedRef, defineComponent, defineCustomElement, markRaw, reactive, ref, Ref, shallowRef } from 'vue';
 
 export interface EthereumEvent {
@@ -73,92 +73,131 @@ type NetworkDefinition = {
     }
     rpcUrls: string[]
     blockExplorerUrls: string[]
+    connector: typeof NetworkConnector
 }
 
-const networks = {
+interface INetworkConnector {
+    provider: providers.Provider
+}
+
+class NetworkConnector implements INetworkConnector {
+    provider: providers.Provider
+    get networkChainId(): Network { return Network.NONE }
+    get network() { return networks[this.networkChainId] }
+
+    constructor(provider: providers.Provider | null) {
+        if (provider) {
+            // Use provided provider (for instance injected MetaMask web3)
+            this.provider = provider
+        } else {
+            // or create one using the RPC Url
+            this.provider = new providers.JsonRpcProvider(this.network.rpcUrls[0])
+        }
+    }
+}
+
+class EthereumConnector extends NetworkConnector {
+    get networkChainId() { return Network.ETHEREUM }
+}
+
+const networks: { [network: string]: NetworkDefinition } = {
     [Network.NONE]: {
         chainName: 'None',
         nativeCurrency: nativeETH,
         rpcUrls: [],
-        blockExplorerUrls: []
+        blockExplorerUrls: [],
+        connector: EthereumConnector
     },
     [Network.ETHEREUM]: {
         chainName: 'Ethereum',
         nativeCurrency: nativeETH,
-        rpcUrls: [],
-        blockExplorerUrls: ['https://etherscan.io/']
+        rpcUrls: ['https://mainnet.infura.io/v3/845b3e08e20a41f185f36a2b73cfa5e4'],
+        blockExplorerUrls: ['https://etherscan.io/'],
+        connector: EthereumConnector
     },
     [Network.ROPSTEN]: {
         chainName: 'Ropsten',
         nativeCurrency: nativeETH,
         rpcUrls: [],
-        blockExplorerUrls: ['https://ropsten.etherscan.io/']
+        blockExplorerUrls: ['https://ropsten.etherscan.io/'],
+        connector: EthereumConnector
     },
     [Network.KOVAN]: {
         chainName: 'Kovan',
         nativeCurrency: nativeETH,
         rpcUrls: [],
-        blockExplorerUrls: ['https://kovan.etherscan.io/']
+        blockExplorerUrls: ['https://kovan.etherscan.io/'],
+        connector: EthereumConnector
     },
     [Network.RINKEBY]: {
         chainName: 'Rinkeby',
         nativeCurrency: nativeETH,
         rpcUrls: [],
-        blockExplorerUrls: ['https://rinkeby.etherscan.io/']
+        blockExplorerUrls: ['https://rinkeby.etherscan.io/'],
+        connector: EthereumConnector
     },
     [Network.GOERLI]: {
         chainName: 'Goerli',
         nativeCurrency: nativeETH,
         rpcUrls: [],
-        blockExplorerUrls: ['https://goerli.etherscan.io/']
+        blockExplorerUrls: ['https://goerli.etherscan.io/'],
+        connector: EthereumConnector
     },
     [Network.BINANCE]: {
         chainName: 'Binance Smart Chain',
         nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
         rpcUrls: ['https://bsc-dataseed.binance.org/'],
-        blockExplorerUrls: ['https://bscscan.com']
+        blockExplorerUrls: ['https://bscscan.com'],
+        connector: EthereumConnector
     },
     [Network.BINANCE_TEST]: {
         chainName: 'Binance Smart Chain - Testnet',
         nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
         rpcUrls: ['https://data-seed-prebsc-1-s1.binance.org:8545/'],
-        blockExplorerUrls: ['https://testnet.bscscan.com']
+        blockExplorerUrls: ['https://testnet.bscscan.com'],
+        connector: EthereumConnector
     },
     [Network.POLYGON]: {
         chainName: 'Matic',
         nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
         rpcUrls: ['https://matic-mainnet.chainstacklabs.com', 'https://rpc-mainnet.matic.network', 'https://rpc-mainnet.maticvigil.com', 'https://rpc-mainnet.matic.quiknode.pro', 'https://matic-mainnet-full-rpc.bwarelabs.com', 'https://matic-mainnet-archive-rpc.bwarelabs.com'],
-        blockExplorerUrls: ['https://polygonscan.com/', 'https://polygon-explorer-mainnet.chainstacklabs.com', 'https://explorer-mainnet.maticvigil.com', 'https://explorer.matic.network', 'https://backup-explorer.matic.network']
+        blockExplorerUrls: ['https://polygonscan.com/', 'https://polygon-explorer-mainnet.chainstacklabs.com', 'https://explorer-mainnet.maticvigil.com', 'https://explorer.matic.network', 'https://backup-explorer.matic.network'],
+        connector: EthereumConnector
     },
     [Network.POLYGON_TEST]: {
         chainName: 'Mumbai',
         nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
         rpcUrls: ['https://matic-mumbai.chainstacklabs.com', 'https://rpc-mumbai.matic.today', 'https://rpc-mumbai.maticvigil.com', 'https://matic-testnet-archive-rpc.bwarelabs.com'],
-        blockExplorerUrls: ['https://mumbai.polygonscan.com/', 'https://polygon-explorer-mumbai.chainstacklabs.com', 'https://explorer-mumbai.maticvigil.com', 'https://mumbai-explorer.matic.today', 'https://backup-mumbai-explorer.matic.today']
+        blockExplorerUrls: ['https://mumbai.polygonscan.com/', 'https://polygon-explorer-mumbai.chainstacklabs.com', 'https://explorer-mumbai.maticvigil.com', 'https://mumbai-explorer.matic.today', 'https://backup-mumbai-explorer.matic.today'],
+        connector: EthereumConnector
     },
     [Network.XDAI]: {
         chainName: 'xDai',
         nativeCurrency: { name: 'xDai', symbol: 'xDAI', decimals: 18 },
         rpcUrls: ['https://rpc.xdaichain.com/'],
-        blockExplorerUrls: ['https://blockscout.com/xdai/mainnet']        
+        blockExplorerUrls: ['https://blockscout.com/xdai/mainnet'],
+        connector: EthereumConnector
     },
     [Network.HUOBI]: {
         chainName: 'Heco',
         nativeCurrency: { name: 'HT', symbol: 'HT', decimals: 18 },
         rpcUrls: ['https://http-mainnet-node.huobichain.com'],
-        blockExplorerUrls: ['https://www.hecochain.io/', 'https://hecoinfo.com']        
+        blockExplorerUrls: ['https://www.hecochain.io/', 'https://hecoinfo.com'],
+        connector: EthereumConnector       
     },
     [Network.HUOBI_TEST]: {
         chainName: 'Heco - Testnet',
         nativeCurrency: { name: 'HT', symbol: 'HT', decimals: 18 },
         rpcUrls: ['https://http-testnet.hecochain.com'],
-        blockExplorerUrls: ['https://scan-testnet.hecochain.com']        
+        blockExplorerUrls: ['https://scan-testnet.hecochain.com'],
+        connector: EthereumConnector        
     },
     [Network.ARBITRUM_TEST]: {
         chainName: 'Arbitrum Testnet',
         nativeCurrency: nativeETH,
         rpcUrls: ['https://rinkeby.arbitrum.io/rpc'],
-        blockExplorerUrls: ['https://rinkeby-explorer.arbitrum.io/#/']        
+        blockExplorerUrls: ['https://rinkeby-explorer.arbitrum.io/#/'],
+        connector: EthereumConnector        
     },
     [Network.AVALANCHE]: {
         chainName: 'Avalanche Mainnet C-Chain',
@@ -168,7 +207,8 @@ const networks = {
             decimals: 18
         },
         rpcUrls: ['https://api.avax.network/ext/bc/C/rpc'],
-        blockExplorerUrls: ['https://cchain.explorer.avax.network/']
+        blockExplorerUrls: ['https://cchain.explorer.avax.network/'],
+        connector: EthereumConnector
     },
     [Network.AVALANCHE_TEST]: {
         chainName: 'Avalanche Testnet C-Chain',
@@ -178,49 +218,57 @@ const networks = {
             decimals: 18
         },
         rpcUrls: ['https://api.avax-test.network/ext/bc/C/rpc'],
-        blockExplorerUrls: ['https://cchain.explorer.avax-test.network/']
+        blockExplorerUrls: ['https://cchain.explorer.avax-test.network/'],
+        connector: EthereumConnector
     },
     [Network.TOMO]: {
         chainName: 'TomoChain',
         nativeCurrency: { name: 'TOMO', symbol: 'TOMO', decimals: 18 },
         rpcUrls: ['https://rpc.tomochain.com'],
-        blockExplorerUrls: ['https://scan.tomochain.com']        
+        blockExplorerUrls: ['https://scan.tomochain.com'],
+        connector: EthereumConnector        
     },
     [Network.TOMO_TEST]: {
         chainName: 'TomoChain Testnet',
         nativeCurrency: { name: 'TOMO', symbol: 'TOMO', decimals: 18 },
         rpcUrls: ['https://rpc.testnet.tomochain.com'],
-        blockExplorerUrls: ['https://scan.testnet.tomochain.com']        
+        blockExplorerUrls: ['https://scan.testnet.tomochain.com'],
+        connector: EthereumConnector        
     },
     [Network.FANTOM]: {
         chainName: 'Fantom Opera',
         nativeCurrency: { name: 'FTM', symbol: 'FTM', decimals: 18 },
         rpcUrls: ['https://rpcapi.fantom.network', 'https://rpc.ftm.tools/'],
-        blockExplorerUrls: ['https://ftmscan.com/']        
+        blockExplorerUrls: ['https://ftmscan.com/'],
+        connector: EthereumConnector        
     },
     [Network.FANTOM_TEST]: {
         chainName: 'Fantom Testnet',
         nativeCurrency: { name: 'FTM', symbol: 'FTM', decimals: 18 },
         rpcUrls: ['https://rpc.testnet.fantom.network/'],
-        blockExplorerUrls: ['']        
+        blockExplorerUrls: [''],
+        connector: EthereumConnector        
     },
     [Network.MOONBEAM_KUSAMA]: {
         chainName: 'Moonriver',
         nativeCurrency: { name: 'MOVR', symbol: 'MOVR', decimals: 18 },
         rpcUrls: ['https://rpc.moonriver.moonbeam.network'],
-        blockExplorerUrls: ['https://blockscout.moonriver.moonbeam.network/']        
+        blockExplorerUrls: ['https://blockscout.moonriver.moonbeam.network/'],
+        connector: EthereumConnector        
     },
     [Network.MOONBEAM_TEST]: {
         chainName: 'Moonbase Alpha',
         nativeCurrency: { name: 'DEV', symbol: 'DEV', decimals: 18 },
         rpcUrls: ['https://rpc.testnet.moonbeam.network'],
-        blockExplorerUrls: ['https://moonbase-blockscout.testnet.moonbeam.network/']        
+        blockExplorerUrls: ['https://moonbase-blockscout.testnet.moonbeam.network/'],
+        connector: EthereumConnector        
     },
     [Network.HARDHAT]: {
         chainName: 'Hardhat',
         nativeCurrency: { name: 'Ethereum', symbol: 'ETH', decimals: 18 },
         rpcUrls: ['http://127.0.0.1:8545/'],
-        blockExplorerUrls: ['']        
+        blockExplorerUrls: [''],
+        connector: EthereumConnector        
     },
 }
 

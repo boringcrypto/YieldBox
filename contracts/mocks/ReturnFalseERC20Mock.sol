@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.12;
+pragma solidity 0.8.9;
 
 // solhint-disable no-inline-assembly
 // solhint-disable not-rely-on-time
@@ -22,7 +22,7 @@ contract ReturnFalseERC20Mock {
         string memory symbol_,
         uint8 decimals_,
         uint256 supply
-    ) public {
+    ) {
         name = name_;
         symbol = symbol_;
         decimals = decimals_;

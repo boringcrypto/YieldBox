@@ -14,17 +14,17 @@
 // Copyright (c) 2021, 2022 BoringCrypto - All rights reserved
 // Twitter: @Boring_Crypto
 
-pragma solidity 0.6.12;
+pragma solidity 0.8.9;
 pragma experimental ABIEncoderV2;
 import "./interfaces/IWETH.sol";
 import "./interfaces/IStrategy.sol";
-import "./interfaces/IERC1155.sol";
-import "./interfaces/IERC1155TokenReceiver.sol";
+import "@boringcrypto/boring-solidity/contracts/interfaces/IERC1155.sol";
+import "@boringcrypto/boring-solidity/contracts/interfaces/IERC1155TokenReceiver.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/Base64.sol";
-import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringAddress.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "@boringcrypto/boring-solidity/contracts/Domain.sol";
+import "./ERC1155.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 
@@ -41,8 +41,7 @@ struct Asset {
 /// @notice The YieldBox is a vault for tokens. The stored tokens can assigned to strategies.
 /// Yield from this will go to the token depositors.
 /// Any funds transfered directly onto the YieldBox will be lost, use the deposit function instead.
-contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiver {
-    using BoringMath for uint256;
+contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, IERC1155TokenReceiver {
     using BoringAddress for address;
     using BoringERC20 for IERC20;
     using Base64 for bytes;
@@ -52,12 +51,6 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     // ************** //
 
     // TODO: Add events
-
-    // EIP-1155 events
-    event TransferSingle(address indexed _operator, address indexed _from, address indexed _to, uint256 _id, uint256 _value);
-    event TransferBatch(address indexed _operator, address indexed _from, address indexed _to, uint256[] _ids, uint256[] _values);
-    event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
-    event URI(string _value, uint256 indexed _id);
 
     // ******************************** //
     // *** CONSTANTS AND IMMUTABLES *** //
@@ -69,6 +62,8 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     uint96 private constant EIP721 = 1;
     uint96 private constant EIP1155 = 2;
 
+    IStrategy private constant NO_STRATEGY = IStrategy(address(0));
+
     // ***************** //
     // *** VARIABLES *** //
     // ***************** //
@@ -77,22 +72,16 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     mapping(uint96 => mapping(address => mapping(IStrategy => mapping(uint256 => uint256)))) public ids;
     Asset[] public assets;
 
-    // Balance per asset per address/contract in shares
-    mapping(uint256 => mapping(address => uint256)) public shares;
-
     // Total shares per asset
     mapping(uint256 => uint256) public totalShares;
-
-    // Approved operators per user. If the operator is a master contract, it will also approve all clones.
-    mapping(address => mapping(address => bool)) public isApprovedForAll;
 
     // ******************* //
     // *** CONSTRUCTOR *** //
     // ******************* //
 
-    constructor(IERC20 wethToken_) public {
+    constructor(IERC20 wethToken_) {
         wethToken = wethToken_;
-        assets.push(Asset(EIP20, address(0), IStrategy(0), 0));
+        assets.push(Asset(EIP20, address(0), NO_STRATEGY, 0));
     }
 
     // ***************** //
@@ -126,15 +115,15 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         // 1 amount/1e8 shares already burned. This also starts with a 1 : 1e8 ratio which
         // functions like 8 decimal fixed point math. This prevents ratio attacks or inaccuracy
         // due to 'gifting' or rebasing tokens. (Up to a certain degree)
-        totalAmount = totalAmount.add(1);
-        totalShares_ = totalShares_.add(1e8);
+        totalAmount++;
+        totalShares_ += 1e8;
 
         // Calculte the shares using te current amount to share ratio
-        share = amount.mul(totalShares_) / totalAmount;
+        share = amount * totalShares_ / totalAmount;
 
         // Default is to round down (Solidity), round up if required
-        if (roundUp && share.mul(totalAmount) / totalShares_ < amount) {
-            share = share.add(1);
+        if (roundUp && share * totalAmount / totalShares_ < amount) {
+            share++;
         }
     }
 
@@ -149,22 +138,22 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         // 1 amount/1e8 shares already burned. This also starts with a 1 : 1e8 ratio which
         // functions like 8 decimal fixed point math. This prevents ratio attacks or inaccuracy
         // due to 'gifting' or rebasing tokens. (Up to a certain degree)
-        totalAmount = totalAmount.add(1);
-        totalShares_ = totalShares_.add(1e8);
+        totalAmount++;
+        totalShares_ += 1e8;
 
         // Calculte the amount using te current amount to share ratio
-        amount = share.mul(totalAmount) / totalShares_;
+        amount = share * totalAmount / totalShares_;
 
         // Default is to round down (Solidity), round up if required
-        if (roundUp && amount.mul(totalShares_) / totalAmount < share) {
-            amount = amount.add(1);
+        if (roundUp && amount * totalShares_ / totalAmount < share) {
+            amount++;
         }
     }
 
     /// @dev Returns the total balance of `token` this contracts holds,
     /// plus the total amount this contract thinks the strategy holds.
     function _tokenBalanceOf(Asset memory asset) internal view returns (uint256 amount) {
-        if (asset.strategy == IStrategy(0)) {
+        if (asset.strategy == NO_STRATEGY) {
             if (asset.standard == EIP20) {
                 return IERC20(asset.contractAddress).safeBalanceOf(address(this));
             } else if (asset.standard == EIP1155) {
@@ -178,13 +167,6 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     // ************************ //
     // *** PUBLIC FUNCTIONS *** //
     // ************************ //
-
-    function supportsInterface(bytes4 interfaceID) external pure returns (bool) {
-        return
-            interfaceID == 0x01ffc9a7 || // EIP-165
-            interfaceID == 0xd9b67a26 || // EIP-1155
-            interfaceID == 0x0e89341c; // EIP-1155 Metadata
-    }
 
     /// @dev Helper function to represent an `amount` of `token` in shares.
     /// @param assetId The id of the asset.
@@ -218,7 +200,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         if (assetId == 0) {
             // Only do these checks if a new asset needs to be created
             require(tokenId == 0 || standard != EIP20, "YieldBox: No tokenId for ERC20");
-            require(strategy == IStrategy(0) || (standard == strategy.standard() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()), "YieldBox: Strategy mismatch");
+            require(strategy == NO_STRATEGY || (standard == strategy.standard() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()), "YieldBox: Strategy mismatch");
 
             // Effects
             assetId = assets.length;
@@ -286,14 +268,14 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
             amount = _toAmount(totalShares[assetId], totalAmount, share, true);
         }
 
-        shares[assetId][to] = shares[assetId][to].add(share);
-        totalShares[assetId] = totalShares[assetId].add(share);
+        balanceOf[to][assetId] += share;
+        totalShares[assetId] += share;
 
         // Interactions
         if (asset.standard == EIP20) {
-            IERC20(asset.contractAddress).safeTransferFrom(from, asset.strategy == IStrategy(0) ? address(this) : address(asset.strategy), amount);
+            IERC20(asset.contractAddress).safeTransferFrom(from, asset.strategy == NO_STRATEGY ? address(this) : address(asset.strategy), amount);
         } else if (asset.standard == EIP1155) {
-            IERC1155(asset.contractAddress).safeTransferFrom(from, asset.strategy == IStrategy(0) ? address(this) : address(asset.strategy), asset.tokenId, amount, "");
+            IERC1155(asset.contractAddress).safeTransferFrom(from, asset.strategy == NO_STRATEGY ? address(this) : address(asset.strategy), asset.tokenId, amount, "");
         }
         emit TransferSingle(msg.sender, address(0), to, assetId, share);
         amountOut = amount;
@@ -313,12 +295,12 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         uint256 amount = msg.value;
         uint256 share = _toShares(totalShares[assetId], _tokenBalanceOf(asset), amount, false);
 
-        shares[assetId][to] = shares[assetId][to].add(share);
-        totalShares[assetId] = totalShares[assetId].add(share);
+        balanceOf[to][assetId] += share;
+        totalShares[assetId] += share;
 
         // Interactions
         IWETH(address(wethToken)).deposit{value: amount}();
-        if (asset.strategy != IStrategy(0)) {
+        if (asset.strategy != NO_STRATEGY) {
             wethToken.safeTransfer(address(asset.strategy), amount);
         }
         emit TransferSingle(msg.sender, address(0), to, assetId, share);
@@ -353,11 +335,11 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
             amount = _toAmount(totalShares[assetId], totalAmount, share, false);
         }
 
-        shares[assetId][from] = shares[assetId][from].sub(share);
-        totalShares[assetId] = totalShares[assetId].sub(share);
+        balanceOf[from][assetId] -= share;
+        totalShares[assetId] -= share;
 
         // Interactions
-        if (asset.strategy == IStrategy(0)) {
+        if (asset.strategy == NO_STRATEGY) {
             if (asset.standard == EIP20) {
                 IERC20(asset.contractAddress).safeTransfer(to, amount);
             } else if (asset.standard == EIP1155) {
@@ -394,11 +376,11 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
             amount = _toAmount(totalShares[assetId], totalAmount, share, false);
         }
 
-        shares[assetId][from] = shares[assetId][from].sub(share);
-        totalShares[assetId] = totalShares[assetId].sub(share);
+        balanceOf[from][assetId] -= share;
+        totalShares[assetId] -= share;
 
         // Interactions
-        if (asset.strategy == IStrategy(0)) {
+        if (asset.strategy == NO_STRATEGY) {
             IWETH(address(wethToken)).withdraw(amount);
             // solhint-disable-next-line avoid-low-level-calls
             (bool success, ) = to.call{value: amount}("");
@@ -410,27 +392,22 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         emit TransferSingle(msg.sender, from, address(0), assetId, share);
         amountOut = amount;
         shareOut = share;
-    }    
+    }
+
+    function _requireTransferAllowed(address from) internal view override allowed(from) { }
 
     /// @notice Transfer shares from a user account to another one.
-    /// @param assetId The id of the asset.
     /// @param from which user to pull the tokens.
     /// @param to which user to push the tokens.
+    /// @param assetId The id of the asset.
     /// @param share The amount of `token` in shares.
     function transfer(
-        uint256 assetId,
         address from,
         address to,
+        uint256 assetId,
         uint256 share
     ) public allowed(from) {
-        // Checks
-        require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
-
-        // Effects
-        shares[assetId][from] = shares[assetId][from].sub(share);
-        shares[assetId][to] = shares[assetId][to].add(share);
-
-        emit TransferSingle(msg.sender, from, to, assetId, share);
+        _transferSingle(from, to, assetId, share);
     }
 
     function batchTransfer(
@@ -439,19 +416,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         uint256[] calldata assetIds_,
         uint256[] calldata shares_
     ) public allowed(from) {
-        // Checks
-        require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
-
-        // Effects
-        uint256 len = assetIds_.length;
-        for (uint256 i = 0; i < len; i++) {
-            uint256 assetId = assetIds_[i];
-            uint256 share = shares_[i];
-            shares[assetId][from] = shares[assetId][from].sub(share);
-            shares[assetId][to] = shares[assetId][to].add(share);
-        }
-
-        emit TransferBatch(msg.sender, from, to, assetIds_, shares_);
+        _transferBatch(from, to, assetIds_, shares_);
     }
 
     /// @notice Transfer shares from a user account to multiple other ones.
@@ -474,65 +439,14 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         for (uint256 i = 0; i < len; i++) {
             address to = tos[i];
             uint256 share_ = share[i];
-            shares[assetId][to] = shares[assetId][to].add(share_);
-            totalAmount = totalAmount.add(share_);
+            balanceOf[to][assetId] += share_;
+            totalAmount += share_;
             emit TransferSingle(msg.sender, from, to, assetId, share_);
         }
-        shares[assetId][from] = shares[assetId][from].sub(totalAmount);
+        balanceOf[from][assetId] -= totalAmount;
     }
 
-    /// The following safeTransfer functions are purely here to be EIP-1155 compliant. Using these in your protocol is NOT recommended as it opens
-    /// up many attack vectors, such as reentrancy issues and denial of service?
-    function safeTransferFrom(
-        address from,
-        address to,
-        uint256 assetId,
-        uint256 share,
-        bytes calldata data
-    ) external {
-        transfer(assetId, from, to, share);
-
-        if (to.isContract()) {
-            require(
-                IERC1155TokenReceiver(to).onERC1155Received(msg.sender, from, assetId, share, data) ==
-                    0xf23a6e61 /*bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)")) */,
-                "Wrong return value"
-            );
-        }
-    }
-
-    function safeBatchTransferFrom(
-        address from,
-        address to,
-        uint256[] calldata assetIds_,
-        uint256[] calldata shares_,
-        bytes calldata data
-    ) external {
-        // Effects
-        batchTransfer(from, to, assetIds_, shares_);
-
-        if (to.isContract()) {
-            require(
-                IERC1155TokenReceiver(to).onERC1155BatchReceived(msg.sender, from, assetIds_, shares_, data) ==
-                    0xbc197c81 /* bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)")) */,
-                "Wrong return value"
-            );
-        }
-    }
-
-    function balanceOf(address owner, uint256 assetId) external view returns (uint256) {
-        return shares[assetId][owner];
-    }
-
-    function balanceOfBatch(address[] calldata owners, uint256[] calldata ids_) external view returns (uint256[] memory balances) {
-        uint256 len = owners.length;
-        balances = new uint256[](len);
-        for (uint256 i = 0; i < len; i++) {
-            balances[i] = shares[ids_[i]][owners[i]];
-        }
-    }
-
-    function setApprovalForAll(address operator, bool approved) external {
+    function setApprovalForAll(address operator, bool approved) external override {
         // Checks
         require(operator != address(0), "YieldBox: operator not set"); // Important for security
         require(masterContractOf[msg.sender] == address(0), "YieldBox: user is clone");
@@ -582,7 +496,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         emit ApprovalForAll(user, operator, approved);
     }
 
-    function uri(uint256 assetId) external view returns (string memory) {
+    function uri(uint256 assetId) external view override returns (string memory) {
         // TODO: Support EIP1155
         // TODO: Add strategy info
         IERC20 token = IERC20(assets[assetId].contractAddress);
@@ -600,7 +514,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
     }
 
     // ERC1155 bloat we have to include to be able to receive ERC1155 tokens.
-    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external override returns (bytes4) {
+    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure override returns (bytes4) {
         return 0xf23a6e61; //bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))
     }
 
@@ -610,7 +524,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, IERC1155TokenReceiv
         uint256[] calldata,
         uint256[] calldata,
         bytes calldata
-    ) external override returns (bytes4) {
+    ) external pure override returns (bytes4) {
         return 0xbc197c81; //bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))
     }
 

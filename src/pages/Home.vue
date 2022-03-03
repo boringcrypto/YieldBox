@@ -156,7 +156,7 @@ export default defineComponent({
                 user: "deployer",
                 name: this.deploy_name,
                 factory: this.factory_name,
-                args: this.args[this.factory_name],
+                args: this.args[this.factory_name] || [],
                 value: this.deploy_value
             })
         },
@@ -173,7 +173,7 @@ export default defineComponent({
                 user: this.user_name,
                 contract: this.contract_name,
                 method: this.method_name,
-                args: this.args[this.contract_name + "|" + this.method_name],
+                args: this.args[this.contract_name + "|" + this.method_name] || [],
                 value: this.method.payable ? this.call_value : ""
             })
         },

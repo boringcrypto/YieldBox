@@ -1,21 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.12;
+pragma solidity 0.8.9;
 import "@boringcrypto/boring-solidity/contracts/ERC20.sol";
-import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
 
 // solhint-disable const-name-snakecase
 
 // SushiBar is the coolest bar in town. You come in with some Sushi, and leave with more! The longer you stay, the more Sushi you get.
 // This contract handles swapping to and from xSushi, SushiSwap's staking token.
 contract SushiBarMock is ERC20 {
-    using BoringMath for uint256;
     ERC20 public sushi;
     uint256 public override totalSupply;
     string public constant name = "SushiBar";
     string public constant symbol = "xSushi";
 
     // Define the Sushi token contract
-    constructor(ERC20 _sushi) public {
+    constructor(ERC20 _sushi) {
         sushi = _sushi;
     }
 
@@ -33,7 +31,7 @@ contract SushiBarMock is ERC20 {
         // Calculate and mint the amount of xSushi the Sushi is worth. The ratio will change overtime,
         // as xSushi is burned/minted and Sushi deposited + gained from fees / withdrawn.
         else {
-            uint256 what = _amount.mul(totalShares) / totalSushi;
+            uint256 what = _amount * totalShares / totalSushi;
             _mint(msg.sender, what);
         }
         // Lock the Sushi in the contract
@@ -46,20 +44,20 @@ contract SushiBarMock is ERC20 {
         // Gets the amount of xSushi in existence
         uint256 totalShares = totalSupply;
         // Calculates the amount of Sushi the xSushi is worth
-        uint256 what = _share.mul(sushi.balanceOf(address(this))) / totalShares;
+        uint256 what = _share * sushi.balanceOf(address(this)) / totalShares;
         _burn(msg.sender, _share);
         sushi.transfer(msg.sender, what);
     }
 
     function _mint(address account, uint256 amount) internal {
-        totalSupply = totalSupply.add(amount);
-        balanceOf[account] = balanceOf[account].add(amount);
+        totalSupply += amount;
+        balanceOf[account] += amount;
         emit Transfer(address(0), account, amount);
     }
 
     function _burn(address account, uint256 amount) internal {
-        balanceOf[account] = balanceOf[account].sub(amount);
-        totalSupply = totalSupply.sub(amount);
+        balanceOf[account] -= amount;
+        totalSupply -= amount;
         emit Transfer(account, address(0), amount);
     }
 }

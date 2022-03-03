@@ -3,6 +3,7 @@
         <div class="mx-auto" style="max-width: 800px">
             <h2>
                 <span v-if="info">
+                    <b-icon v-if="info.type == 'zero'" class="me-1" icon="trash2" />
                     <b-icon v-if="info.type == 'wallet'" class="me-1" icon="wallet" />
                     <b-icon v-if="info.type == 'contract'" class="me-1" icon="file-text" />
                     <span v-if="test.addresses[address].type == 'miner'" class="me-1">👷</span>

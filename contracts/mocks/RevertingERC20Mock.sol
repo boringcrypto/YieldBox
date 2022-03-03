@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.12;
+pragma solidity 0.8.9;
 
 // RevertingERC20 reverts on errors
 contract RevertingERC20Mock {
@@ -18,7 +18,7 @@ contract RevertingERC20Mock {
         string memory symbol_,
         uint8 decimals_,
         uint256 supply
-    ) public {
+    ) {
         name = name_;
         symbol = symbol_;
         decimals = decimals_;

@@ -7,9 +7,9 @@
   resolved "https://registry.yarnpkg.com/@babel/parser/-/parser-7.16.6.tgz#8f194828193e8fa79166f34a4b4e52f3e769a314"
   integrity sha512-Gr86ujcNuPDnNOY8mi383Hvi8IYrJVJYuf3XcuBM/Dgd+bINn/7tHqsj+tKkoreMbmGsFLsltI/JJd8fOFWGDQ==
 
-"@boringcrypto/boring-solidity@boringcrypto/BoringSolidity#ccb743d4c3363ca37491b87c6c9b24b1f5fa25dc":
-  version "1.2.4"
-  resolved "https://codeload.github.com/boringcrypto/BoringSolidity/tar.gz/ccb743d4c3363ca37491b87c6c9b24b1f5fa25dc"
+"@boringcrypto/boring-solidity@boringcrypto/BoringSolidity#5b8d5a8f8855c47df9112ff8292090c54fe82cee":
+  version "2.0.0"
+  resolved "https://codeload.github.com/boringcrypto/BoringSolidity/tar.gz/5b8d5a8f8855c47df9112ff8292090c54fe82cee"
 
 "@boringcrypto/hardhat-framework@boringcrypto/hardhat-framework#8bc714f70dc1075cfcaa0fa0c6d4e4b9624cf14c":
   version "1.2.0"
@@ -20,10 +20,9 @@
     chai "^4.3.4"
     dotenv "^8.2.0"
     ethereum-waffle "^3.3.0"
-    ethers "^5.4.4"
+    ethers "^5.1.4"
     hardhat "^2.2.1"
     hardhat-deploy "^0.7.5"
-    hardhat-ethers "^1.0.1"
     hardhat-gas-reporter "^1.0.4"
     husky "^6.0.0"
     prettier "^2.2.1"

@@ -80,7 +80,7 @@
     },
     "homepage": "https://github.com/boringcrypto/yieldbox#readme",
     "devDependencies": {
-        "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#ccb743d4c3363ca37491b87c6c9b24b1f5fa25dc",
+        "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#5b8d5a8f8855c47df9112ff8292090c54fe82cee",
         "@boringcrypto/hardhat-framework": "boringcrypto/hardhat-framework#8bc714f70dc1075cfcaa0fa0c6d4e4b9624cf14c",
         "@nomiclabs/hardhat-ethers": "^2.0.3",
         "@typechain/ethers-v5": "^9.0.0",
