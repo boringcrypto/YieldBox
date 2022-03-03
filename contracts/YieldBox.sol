@@ -19,11 +19,11 @@ pragma experimental ABIEncoderV2;
 import "./interfaces/IWETH.sol";
 import "./interfaces/IStrategy.sol";
 import "@boringcrypto/boring-solidity/contracts/interfaces/IERC1155.sol";
-import "@boringcrypto/boring-solidity/contracts/interfaces/IERC1155TokenReceiver.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/Base64.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringAddress.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "@boringcrypto/boring-solidity/contracts/Domain.sol";
+import "./ERC1155TokenReceiver.sol";
 import "./ERC1155.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
@@ -41,7 +41,7 @@ struct Asset {
 /// @notice The YieldBox is a vault for tokens. The stored tokens can assigned to strategies.
 /// Yield from this will go to the token depositors.
 /// Any funds transfered directly onto the YieldBox will be lost, use the deposit function instead.
-contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, IERC1155TokenReceiver {
+contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155TokenReceiver {
     using BoringAddress for address;
     using BoringERC20 for IERC20;
     using Base64 for bytes;
@@ -513,20 +513,6 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, IERC1155To
                 .encode();
     }
 
-    // ERC1155 bloat we have to include to be able to receive ERC1155 tokens.
-    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure override returns (bytes4) {
-        return 0xf23a6e61; //bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))
-    }
-
-    function onERC1155BatchReceived(
-        address,
-        address,
-        uint256[] calldata,
-        uint256[] calldata,
-        bytes calldata
-    ) external pure override returns (bytes4) {
-        return 0xbc197c81; //bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))
-    }
-
+    // Included to support unwrapping wrapped native tokens such as WETH
     receive() external payable { }
 }
