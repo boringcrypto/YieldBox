@@ -31,6 +31,7 @@ import "./ERC1155TokenReceiver.sol";
 import "./ERC1155.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
 import "./YieldBoxBase.sol";
 
 // An asset is a token + a strategy
@@ -153,6 +154,7 @@ contract NativeTokenVault is ERC1155, AssetRegister {
 
 contract YieldBoxURIBuilder {
     using BoringERC20 for IERC20;
+    using Strings for uint256;
     using Base64 for bytes;
 
     YieldBox immutable public yieldBox;
@@ -161,27 +163,51 @@ contract YieldBoxURIBuilder {
         yieldBox = YieldBox(payable(msg.sender));
     }
 
+    struct AssetDetails {
+        string tokenType;
+        string name;
+        string symbol;
+        uint256 decimals;
+    }
+
     function uri(uint256 assetId) external view returns (string memory) {
-        NativeAsset memory details;
+        AssetDetails memory details;
         (TokenType tokenType, address contractAddress, IStrategy strategy, uint256 tokenId) = yieldBox.assets(assetId);
         if (tokenType == TokenType.EIP1155) {
-            details.name = "EIP1155 token";
-            details.symbol = "EIP1155";
-        } else if (tokenType == TokenType.Native) {
-            (details.name, details.symbol, details.decimals) = yieldBox.nativeAssets(assetId);
+            details.tokenType = "ERC1155";
+            details.name = string(abi.encodePacked(
+                "ERC1155: ",
+                uint256(uint160(contractAddress)).toHexString(20),
+                ", tokenID: ",
+                tokenId.toString()
+            ));
+            details.symbol = "ERC1155";
         } else if (tokenType == TokenType.EIP20) {
-
+            IERC20 token = IERC20(contractAddress);
+            details = AssetDetails(
+                "ERC20",
+                token.safeName(),
+                token.safeSymbol(),
+                token.safeDecimals()
+            );
+        } else if (tokenType == TokenType.Native) {
+            details.tokenType = "Native";
+            (details.name, details.symbol, details.decimals) = yieldBox.nativeAssets(assetId);
         }
-        IERC20 token = IERC20(contractAddress);
+
         return
             abi.encodePacked(
-                '{"name": "',
-                token.safeName(),
-                '", "symbol": "', // properties
-                token.safeSymbol(),
-                '", "decimals": ',
-                token.safeDecimals(),
-                "}"
+                '{"name":"',
+                    details.name,
+                    '","symbol":"',
+                    details.symbol,
+                    tokenType == TokenType.EIP1155 ? "" : '","decimals":',
+                    tokenType == TokenType.EIP1155 ? "" : details.decimals.toString(),
+                    '","properties":{',
+                        '{"strategy":"',
+                            uint256(uint160(address(strategy))).toHexString(20),
+                        "}"
+                "}}"
             )
             .encode();
     }

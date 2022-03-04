@@ -100,6 +100,7 @@
         "vite": "^2.7.10"
     },
     "dependencies": {
+        "@openzeppelin/contracts": "^4.5.0",
         "@popperjs/core": "2.10.2",
         "bootstrap": "^5.0.2",
         "bootstrap-icons": "^1.7.2",
