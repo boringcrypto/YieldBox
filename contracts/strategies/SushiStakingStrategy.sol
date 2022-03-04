@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.12;
+pragma solidity 0.8.9;
 pragma experimental ABIEncoderV2;
 
 import "@boringcrypto/boring-solidity/contracts/interfaces/IERC20.sol";
-import "@boringcrypto/boring-solidity/contracts/libraries/BoringMath.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
+import "../enums/YieldBoxTokenType.sol";
 import "../interfaces/IStrategy.sol";
 
 interface ISushiBar is IERC20 {
@@ -13,13 +13,12 @@ interface ISushiBar is IERC20 {
 }
 
 contract SushiStakingStrategy is IStrategy {
-    using BoringMath for uint256;
     using BoringERC20 for IERC20;
 
     string public constant override name = "SushiStaking";
     string public constant override description = "Stakes SUSHI into the SushiBar for xSushi";
 
-    uint96 public constant override standard = 0; // ERC20;
+    TokenType public constant override tokenType = TokenType.EIP20;
     address public constant override contractAddress = 0x6B3595068778DD592e39A122f4f5a5cF09C90fE2;
     uint256 public constant override tokenId = 0;
 
@@ -37,9 +36,8 @@ contract SushiStakingStrategy is IStrategy {
     }
 
     function _currentBalance() private view returns (uint256 amount) {
-        return sushi.balanceOf(address(this)).add(
-            sushi.balanceOf(address(sushiBar)).mul(sushiBar.balanceOf(address(this))) / sushiBar.totalSupply()
-        );
+        return sushi.balanceOf(address(this))
+            + sushi.balanceOf(address(sushiBar)) * sushiBar.balanceOf(address(this)) / sushiBar.totalSupply();
     }
 
     function update() public {
@@ -70,12 +68,12 @@ contract SushiStakingStrategy is IStrategy {
         // Update cached balance with the new added amount
         _balance += amount;
         // Get the size of the reserve in % (1e18 based)
-        uint256 reservePercent = sushi.balanceOf(address(this)).mul(100e18) / _balance;
+        uint256 reservePercent = sushi.balanceOf(address(this)) * 100e18 / _balance;
 
         // Check if the reserve is too large, if so invest it
         if (reservePercent > MAX_RESERVE_PERCENT) {
             sushiBar.enter(
-                _balance.mul(reservePercent.sub(TARGET_RESERVE_PERCENT)) / 100e18
+                _balance * (reservePercent - TARGET_RESERVE_PERCENT) / 100e18
             );
         }
     }
@@ -98,11 +96,11 @@ contract SushiStakingStrategy is IStrategy {
                 uint256 totalSushi = sushi.balanceOf(address(sushiBar));
 
                 // The amount of Sushi that should invested after withdrawal
-                uint256 targetSushi = uint256(_balance).mul(100e18 - TARGET_RESERVE_PERCENT) / 100e18;
+                uint256 targetSushi = _balance * (100e18 - TARGET_RESERVE_PERCENT) / 100e18;
                 // The amount of shares (xSushi) that should be invested after withdrawal
-                uint256 targetShares = targetSushi.mul(totalShares) / totalSushi;
+                uint256 targetShares = targetSushi * totalShares / totalSushi;
 
-                sushiBar.leave(shares.sub(targetShares));
+                sushiBar.leave(shares - targetShares);
             }
         }
 

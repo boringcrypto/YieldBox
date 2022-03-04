@@ -8,7 +8,7 @@ import "../YieldBox.sol";
 contract MasterContractMock is IMasterContract {
     YieldBox public immutable yieldBox;
 
-    constructor(YieldBox _yieldBox) public {
+    constructor(YieldBox _yieldBox) {
         yieldBox = _yieldBox;
     }
 

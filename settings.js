@@ -12,7 +12,16 @@ module.exports = {
                     blockGasLimit: 20000000,
                 }
             }
-        }        
+        },
+        solidity: {
+            version: "0.8.9",
+            settings: {
+                optimizer: {
+                    enabled: true,
+                    runs: 50000
+                }
+            }
+        }      
     },
     solcover: {},
     prettier: {},

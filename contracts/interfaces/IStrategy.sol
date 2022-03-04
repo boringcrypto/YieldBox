@@ -2,6 +2,8 @@
 pragma solidity 0.8.9;
 pragma experimental ABIEncoderV2;
 
+import "../enums/YieldBoxTokenType.sol";
+
 interface IStrategy {
     /// Each strategy only works with a single asset. This shoudl help make implementations simpler and more readable.
     /// To safe gas a proxy pattern (YieldBox factory) could be used to deploy the same strategy for multiple tokens.
@@ -24,7 +26,7 @@ interface IStrategy {
     /// #######################
 
     /// Returns the standard that this strategy works with
-    function standard() external view returns (uint96 standard_);
+    function tokenType() external view returns (TokenType tokenType_);
 
     /// Returns the contract address that this strategy works with
     function contractAddress() external view returns (address contractAddress_);
@@ -76,3 +78,5 @@ interface IStrategy {
     /// Only accept this call from the YieldBox
     function withdrawETH(uint256 amount, address to) external;
 }
+
+IStrategy constant NO_STRATEGY = IStrategy(address(0));

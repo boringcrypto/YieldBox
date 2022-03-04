@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.12;
+pragma solidity 0.8.9;
 import "../YieldBox.sol";
 
 // An example a contract that stores tokens in the YieldBox.
@@ -12,10 +12,10 @@ contract HelloWorld {
     IStrategy public immutable strategy;
     uint256 public immutable assetId;
 
-    constructor(YieldBox _yieldBox, IERC20 token, IStrategy _strategy) public {
+    constructor(YieldBox _yieldBox, IERC20 token, IStrategy _strategy) {
         yieldBox = _yieldBox;
         strategy = _strategy;
-        assetId = _yieldBox.registerAsset(EIP20, address(token), _strategy, 0);
+        assetId = _yieldBox.registerAsset(TokenType.EIP20, address(token), _strategy, 0);
     }
 
     mapping(address => uint256) public yieldBoxShares;

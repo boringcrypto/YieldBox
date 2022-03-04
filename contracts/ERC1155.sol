@@ -91,7 +91,7 @@ abstract contract ERC1155 is IERC1155 {
         emit TransferBatch(msg.sender, from, to, ids, values);
     }
 
-    function _requireTransferAllowed(address from) internal view {
+    function _requireTransferAllowed(address from) internal view virtual {
         require(from == msg.sender || isApprovedForAll[from][msg.sender] == true, "Transfer not allowed");
     }
 
@@ -136,13 +136,13 @@ abstract contract ERC1155 is IERC1155 {
         }
     }
 
-    function setApprovalForAll(address operator, bool approved) external override {
+    function setApprovalForAll(address operator, bool approved) external override virtual {
         isApprovedForAll[msg.sender][operator] = approved;
 
         emit ApprovalForAll(msg.sender, operator, approved);
     }
 
-    function uri(uint256 /*assetId*/) external view returns (string memory) {
+    function uri(uint256 /*assetId*/) external view virtual returns (string memory) {
         return "";
     }
 }

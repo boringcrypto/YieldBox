@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.6.12;
+pragma solidity 0.8.9;
 pragma experimental ABIEncoderV2;
 import "../YieldBox.sol";
 
@@ -9,8 +9,6 @@ import "../YieldBox.sol";
 // IDEA: Enable partial withdrawals
 
 contract Salary is BoringBatchable {
-    using BoringMath for uint256;
-
     YieldBox public yieldBox;
 
     event LogCreate(
@@ -26,7 +24,7 @@ contract Salary is BoringBatchable {
     event LogWithdraw(uint256 indexed salaryId, address indexed to, uint256 shares);
     event LogCancel(uint256 indexed salaryId, address indexed to, uint256 shares);
 
-    constructor(YieldBox _yieldBox) public {
+    constructor(YieldBox _yieldBox) {
         yieldBox = _yieldBox;
     }
 
@@ -100,7 +98,7 @@ contract Salary is BoringBatchable {
         if (mode == MODE_YIELDBOX) {
             // Fund this salary using the funder's YieldBox balance. Convert the amoutn to shares, then transfer the shares
             shares = yieldBox.toShare(assetId, amount, false);
-            yieldBox.transfer(assetId, msg.sender, address(this), shares);
+            yieldBox.transfer(msg.sender, address(this), assetId, shares);
         } else {
             // Fund this salary with ERC20 tokens
             // This is a potential reentrancy target, funds in this contract could be higher than the total of salaries during this call
@@ -115,11 +113,11 @@ contract Salary is BoringBatchable {
         salary.cliffTimestamp = cliffTimestamp;
         salary.endTimestamp = endTimestamp;
         salary.cliffPercent = cliffPercent;
-        salary.shares = shares.to128();
+        salary.shares = uint128(shares);
         salaries.push(salary);
         funder.push(msg.sender);
 
-        emit LogCreate(msg.sender, recipient, assetId, cliffTimestamp, endTimestamp, cliffPercent, shares.to128(), salaryId);
+        emit LogCreate(msg.sender, recipient, assetId, cliffTimestamp, endTimestamp, cliffPercent, uint128(shares), salaryId);
     }
 
     function _available(UserSalary memory salary) internal view returns (uint256 shares) {
@@ -133,23 +131,23 @@ contract Salary is BoringBatchable {
             // In between, cliff is available, rest according to slope
 
             // Time that has passed since the cliff
-            uint256 timeSinceCliff = block.timestamp.sub(salary.cliffTimestamp);
+            uint256 timeSinceCliff = block.timestamp - salary.cliffTimestamp;
             // Total time period of the slope
-            uint256 timeSlope = uint256(salary.endTimestamp).sub(salary.cliffTimestamp);
+            uint256 timeSlope = salary.endTimestamp - salary.cliffTimestamp;
             uint256 payablePercent = salary.cliffPercent;
             if (timeSinceCliff > 0) {
                 // The percentage paid out during the slope
-                uint256 slopePercent = uint256(1e18).sub(uint256(salary.cliffPercent));
+                uint256 slopePercent = 1e18 - salary.cliffPercent;
                 // The percentage payable on the slope added to the cliff percentage
-                payablePercent = payablePercent.add(slopePercent.mul(timeSinceCliff) / timeSlope);
+                payablePercent = payablePercent + (slopePercent * timeSinceCliff / timeSlope);
             }
             // The share payable
-            shares = uint256(salary.shares).mul(payablePercent) / 1e18;
+            shares = salary.shares * payablePercent / 1e18;
         }
 
         // Remove any shares already wiythdrawn, if negative, return 0
         if (shares > salary.withdrawnShares) {
-            shares = shares.sub(salary.withdrawnShares);
+            shares = shares - salary.withdrawnShares;
         } else {
             shares = 0;
         }
@@ -171,9 +169,9 @@ contract Salary is BoringBatchable {
         require(salary.recipient == msg.sender, "Salary: not recipient");
 
         uint256 pendingShares = _available(salary);
-        salaries[salaryId].withdrawnShares = salary.withdrawnShares.add(pendingShares);
+        salaries[salaryId].withdrawnShares = salary.withdrawnShares + pendingShares;
         if (toYieldBox) {
-            yieldBox.transfer(salary.assetId, address(this), to, pendingShares);
+            yieldBox.transfer(address(this), to, salary.assetId, pendingShares);
         } else {
             yieldBox.withdraw(salary.assetId, address(this), to, 0, pendingShares);
         }
@@ -192,9 +190,9 @@ contract Salary is BoringBatchable {
         address to,
         bool toYieldBox
     ) public onlyFunder(salaryId) {
-        uint256 sharesLeft = uint256(salaries[salaryId].shares).sub(salaries[salaryId].withdrawnShares);
+        uint256 sharesLeft = salaries[salaryId].shares - salaries[salaryId].withdrawnShares;
         if (toYieldBox) {
-            yieldBox.transfer(salaries[salaryId].assetId, address(this), to, sharesLeft);
+            yieldBox.transfer(address(this), to, salaries[salaryId].assetId, sharesLeft);
         } else {
             yieldBox.withdraw(salaries[salaryId].assetId, address(this), to, 0, sharesLeft);
         }
