@@ -13,14 +13,6 @@ import "./ERC1155.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 
-// An asset is a token + a strategy
-struct Asset {
-    TokenType standard;
-    address contractAddress;
-    IStrategy strategy;
-    uint256 tokenId;
-}
-
 library BoringRebase {
     /// @notice Calculates the base value in relationship to `elastic` and `total`.
     function _toShares(

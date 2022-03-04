@@ -33,7 +33,23 @@ import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 import "./YieldBoxBase.sol";
 
+// An asset is a token + a strategy
+struct Asset {
+    TokenType tokenType;
+    address contractAddress;
+    IStrategy strategy;
+    uint256 tokenId;
+}
+
+struct NativeAsset {
+    string name;
+    string symbol;
+    uint8 decimals;
+}
+
 contract AssetRegister {
+    using BoringAddress for address;
+
     // ids start at 1 so that id 0 means it's not yet registered
     mapping(TokenType => mapping(address => mapping(IStrategy => mapping(uint256 => uint256)))) public ids;
     Asset[] public assets;
@@ -51,6 +67,10 @@ contract AssetRegister {
             // Only do these checks if a new asset needs to be created
             require(tokenId == 0 || tokenType != TokenType.EIP20, "YieldBox: No tokenId for ERC20");
             require(strategy == NO_STRATEGY || (tokenType == strategy.tokenType() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()), "YieldBox: Strategy mismatch");
+            // If a new token gets added, the isContract checks that this is a deployed contract. Needed for security.
+            // Prevents getting shares for a future token whose address is known in advance. For instance a token that will be deployed with CREATE2 in the future or while the contract creation is
+            // in the mempool
+            require(contractAddress.isContract(), "YieldBox: Not a token");
 
             // Effects
             assetId = assets.length;
@@ -60,17 +80,123 @@ contract AssetRegister {
     }
 }
 
+contract NativeTokenVault is ERC1155, AssetRegister {
+    mapping(uint256 => NativeAsset) public nativeAssets;
+    mapping(uint256 => address) public owner;
+    mapping(uint256 => address) public pendingOwner;
+
+    event OwnershipTransferred(uint256 indexed assetId, address indexed previousOwner, address indexed newOwner);
+
+    /// @notice Only allows the `owner` to execute the function.
+    modifier onlyOwner(uint256 assetId) {
+        require(msg.sender == owner[assetId], "NTV: caller is not the owner");
+        _;
+    }    
+
+    /// @notice Transfers ownership to `newOwner`. Either directly or claimable by the new pending owner.
+    /// Can only be invoked by the current `owner`.
+    /// @param newOwner Address of the new owner.
+    /// @param direct True if `newOwner` should be set immediately. False if `newOwner` needs to use `claimOwnership`.
+    /// @param renounce Allows the `newOwner` to be `address(0)` if `direct` and `renounce` is True. Has no effect otherwise.
+    function transferOwnership(
+        uint256 assetId,
+        address newOwner,
+        bool direct,
+        bool renounce
+    ) public onlyOwner(assetId) {
+        if (direct) {
+            // Checks
+            require(newOwner != address(0) || renounce, "NTV: zero address");
+
+            // Effects
+            emit OwnershipTransferred(assetId, owner[assetId], newOwner);
+            owner[assetId] = newOwner;
+            pendingOwner[assetId] = address(0);
+        } else {
+            // Effects
+            pendingOwner[assetId] = newOwner;
+        }
+    }
+
+    /// @notice Needs to be called by `pendingOwner` to claim ownership.
+    function claimOwnership(uint256 assetId) public {
+        address _pendingOwner = pendingOwner[assetId];
+
+        // Checks
+        require(msg.sender == _pendingOwner, "NTV: caller != pending owner");
+
+        // Effects
+        emit OwnershipTransferred(assetId, owner[assetId], _pendingOwner);
+        owner[assetId] = _pendingOwner;
+        pendingOwner[assetId] = address(0);
+    }
+
+    function createToken(string calldata name, string calldata symbol, uint8 decimals) public {
+        uint256 assetId = registerAsset(TokenType.Native, address(0), NO_STRATEGY, 0);
+        // Initial supply is 0, use owner can mint. For a fixed supply the owner can mint and revoke ownership.
+        // The msg.sender is the initial owner, can be changed after.
+        nativeAssets[assetId] = NativeAsset(name, symbol, decimals);
+        owner[assetId] = msg.sender;
+
+        emit OwnershipTransferred(assetId, address(0), msg.sender);
+    }
+
+    function mint(uint256 assetId, address to, uint256 amount) public onlyOwner(assetId) {
+        _mint(to, assetId, amount);
+    }
+
+    function burn(uint256 assetId, uint256 amount) public {
+        require(assets[assetId].tokenType == TokenType.Native, "NTV: Not native");
+        _burn(msg.sender, assetId, amount);
+    }
+}
+
+contract YieldBoxURIBuilder {
+    using BoringERC20 for IERC20;
+    using Base64 for bytes;
+
+    YieldBox immutable public yieldBox;
+
+    constructor() {
+        yieldBox = YieldBox(payable(msg.sender));
+    }
+
+    function uri(uint256 assetId) external view returns (string memory) {
+        NativeAsset memory details;
+        (TokenType tokenType, address contractAddress, IStrategy strategy, uint256 tokenId) = yieldBox.assets(assetId);
+        if (tokenType == TokenType.EIP1155) {
+            details.name = "EIP1155 token";
+            details.symbol = "EIP1155";
+        } else if (tokenType == TokenType.Native) {
+            (details.name, details.symbol, details.decimals) = yieldBox.nativeAssets(assetId);
+        } else if (tokenType == TokenType.EIP20) {
+
+        }
+        IERC20 token = IERC20(contractAddress);
+        return
+            abi.encodePacked(
+                '{"name": "',
+                token.safeName(),
+                '", "symbol": "', // properties
+                token.safeSymbol(),
+                '", "decimals": ',
+                token.safeDecimals(),
+                "}"
+            )
+            .encode();
+    }
+}
+
 /// @title YieldBox
 /// @author BoringCrypto, Keno
 /// @notice The YieldBox is a vault for tokens. The stored tokens can assigned to strategies.
 /// Yield from this will go to the token depositors.
 /// Any funds transfered directly onto the YieldBox will be lost, use the deposit function instead.
-contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155TokenReceiver, AssetRegister {
+contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenVault, ERC1155TokenReceiver {
     using BoringAddress for address;
     using BoringERC20 for IERC20;
     using BoringERC20 for IWrappedNative;
     using BoringRebase for uint256;
-    using Base64 for bytes;
 
     // ************** //
     // *** EVENTS *** //
@@ -78,18 +204,16 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
 
     // TODO: Add events
 
-    // ***************** //
-    // *** VARIABLES *** //
-    // ***************** //
-
-    IWrappedNative private immutable wrappedNative;
-
     // ******************* //
     // *** CONSTRUCTOR *** //
     // ******************* //
 
+    IWrappedNative private immutable wrappedNative;
+    YieldBoxURIBuilder private immutable uriBuilder;
+
     constructor(IWrappedNative wrappedNative_) {
         wrappedNative = wrappedNative_;
+        uriBuilder = new YieldBoxURIBuilder();
     }
 
     // ***************** //
@@ -116,9 +240,9 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
     /// plus the total amount this contract thinks the strategy holds.
     function _tokenBalanceOf(Asset storage asset) internal view returns (uint256 amount) {
         if (asset.strategy == NO_STRATEGY) {
-            if (asset.standard == TokenType.EIP20) {
+            if (asset.tokenType == TokenType.EIP20) {
                 return IERC20(asset.contractAddress).safeBalanceOf(address(this));
-            } else if (asset.standard == TokenType.EIP1155) {
+            } else if (asset.tokenType == TokenType.EIP1155) {
                 return IERC1155(asset.contractAddress).balanceOf(address(this), asset.tokenId);
             }
         } else {
@@ -145,19 +269,12 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
         uint256 amount,
         uint256 share
     ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
-        // Effects
+        // Checks
         Asset storage asset = assets[assetId];
+        require(asset.tokenType != TokenType.Native);
+
+        // Effects
         uint256 totalAmount = _tokenBalanceOf(asset);
-
-        // If a new token gets added, the tokenSupply call checks that this is a deployed contract. Needed for security.
-        // Prevents getting shares for a token that will be deployed with CREATE2 in the future or as the contract creation is
-        // in the mempool
-        if (totalAmount == 0) {
-            if (asset.standard == TokenType.EIP20) {
-                require(asset.contractAddress.isContract(), "YieldBox: Not a token");
-            }
-        }
-
         if (share == 0) {
             // value of the share may be lower than the amount due to rounding, that's ok
             share = amount._toShares(totalSupply[assetId], totalAmount, false);
@@ -169,9 +286,9 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
         _mint(to, assetId, share);
 
         // Interactions
-        if (asset.standard == TokenType.EIP20) {
+        if (asset.tokenType == TokenType.EIP20) {
             IERC20(asset.contractAddress).safeTransferFrom(from, asset.strategy == NO_STRATEGY ? address(this) : address(asset.strategy), amount);
-        } else if (asset.standard == TokenType.EIP1155) {
+        } else if (asset.tokenType == TokenType.EIP1155) {
             IERC1155(asset.contractAddress).safeTransferFrom(from, asset.strategy == NO_STRATEGY ? address(this) : address(asset.strategy), asset.tokenId, amount, "");
         }
 
@@ -184,7 +301,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
     ) public payable returns (uint256 amountOut, uint256 shareOut) {
         // Checks
         Asset storage asset = assets[assetId];
-        require(asset.standard == TokenType.EIP20 && asset.contractAddress == address(wrappedNative), "YieldBox: not WETH");
+        require(asset.tokenType == TokenType.EIP20 && asset.contractAddress == address(wrappedNative), "YieldBox: not WETH");
 
         // Effects
         uint256 amount = msg.value;
@@ -193,9 +310,11 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
         _mint(to, assetId, share);
 
         // Interactions
-        wrappedNative.deposit{value: amount}();
-        if (asset.strategy != NO_STRATEGY) {
-            wrappedNative.safeTransfer(address(asset.strategy), amount);
+        if (asset.strategy == NO_STRATEGY) {
+            wrappedNative.deposit{value: amount}();
+        } else {
+            // Strategies will receive the the native currency directly. It is up to the strategy to wrap it if needed
+            address(asset.strategy).sendNative(amount);
         }
 
         return (amount, share);
@@ -214,8 +333,11 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
         uint256 amount,
         uint256 share
     ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
-        // Effects
+        // Checks
         Asset storage asset = assets[assetId];
+        require(asset.tokenType != TokenType.Native);
+
+        // Effects
         uint256 totalAmount = _tokenBalanceOf(asset);
         if (share == 0) {
             // value of the share paid could be lower than the amount paid due to rounding, in that case, add a share (Always round up)
@@ -229,49 +351,19 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
 
         // Interactions
         if (asset.strategy == NO_STRATEGY) {
-            if (asset.standard == TokenType.EIP20) {
-                IERC20(asset.contractAddress).safeTransfer(to, amount);
-            } else if (asset.standard == TokenType.EIP1155) {
+            if (asset.tokenType == TokenType.EIP20) {
+                // Native tokens are always unwrapped when withdrawn
+                if (asset.contractAddress == address(wrappedNative)) {
+                    wrappedNative.withdraw(amount);
+                    to.sendNative(amount);
+                } else {
+                    IERC20(asset.contractAddress).safeTransfer(to, amount);
+                }
+            } else if (asset.tokenType == TokenType.EIP1155) {
                 IERC1155(asset.contractAddress).safeTransferFrom(address(this), to, asset.tokenId, amount, "");
             }
         } else {
             asset.strategy.withdraw(amount, to);
-        }
-
-        return (amount, share);
-    }
-
-    function withdrawETH(
-        uint256 assetId,
-        address from,
-        address to,
-        uint256 amount,
-        uint256 share
-    ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
-        // Checks
-        Asset storage asset = assets[assetId];
-        require(asset.standard == TokenType.EIP20 && asset.contractAddress == address(wrappedNative), "YieldBox: not WETH");
-
-        // Effects
-        uint256 totalAmount = _tokenBalanceOf(asset);
-        if (share == 0) {
-            // value of the share paid could be lower than the amount paid due to rounding, in that case, add a share (Always round up)
-            share = amount._toShares(totalSupply[assetId], totalAmount, true);
-        } else {
-            // amount may be lower than the value of share due to rounding, that's ok
-            amount = share._toAmount(totalSupply[assetId], totalAmount, false);
-        }
-
-        _burn(from, assetId, share);
-
-        // Interactions
-        if (asset.strategy == NO_STRATEGY) {
-            wrappedNative.withdraw(amount);
-            // solhint-disable-next-line avoid-low-level-calls
-            (bool success, ) = to.call{value: amount}("");
-            require(success, "YieldBox: ETH transfer failed");
-        } else {
-            asset.strategy.withdrawETH(amount, to);
         }
 
         return (amount, share);
@@ -380,27 +472,16 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
     }
 
     function uri(uint256 assetId) external view override returns (string memory) {
-        // TODO: Support EIP1155
-        // TODO: Add strategy info
-        IERC20 token = IERC20(assets[assetId].contractAddress);
-        return
-                abi.encodePacked(
-                    '{"name": "',
-                    token.safeName(),
-                    '", "symbol": "', // properties
-                    token.safeSymbol(),
-                    '", "decimals": ',
-                    token.safeDecimals(),
-                    "}"
-                )
-                .encode();
+        // This functionality has been split off into a separate contract. This is only a view function, so gas usage isn't a huge issue.
+        // This keeps the YieldBox contract smaller, so it can be optimized more.
+        return uriBuilder.uri(assetId);
     }
 
     // Included to support unwrapping wrapped native tokens such as WETH
     receive() external payable { }
 
     // Helper functions
-    
+
     /// @dev Helper function to represent an `amount` of `token` in shares.
     /// @param assetId The id of the asset.
     /// @param amount The `token` amount.
