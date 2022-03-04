@@ -7,7 +7,7 @@ import "@boringcrypto/boring-solidity/contracts/libraries/BoringAddress.sol";
 
 // Written by OreNoMochi (https://github.com/OreNoMochii)
 
-abstract contract ERC1155 is IERC1155 {
+contract ERC1155 is IERC1155 {
     using BoringAddress for address;
 
     // mappings
@@ -22,12 +22,7 @@ abstract contract ERC1155 is IERC1155 {
             interfaceID == 0x0e89341c; // EIP-1155 Metadata
     }
 
-    function balanceOfBatch(address[] calldata owners, uint256[] calldata ids)
-        external
-        view
-        override
-        returns (uint256[] memory balances)
-    {
+    function balanceOfBatch(address[] calldata owners, uint256[] calldata ids) external view override returns (uint256[] memory balances) {
         uint256 len = owners.length;
         require(len == ids.length, "ERC1155: Length mismatch");
 
@@ -139,13 +134,15 @@ abstract contract ERC1155 is IERC1155 {
         }
     }
 
-    function setApprovalForAll(address operator, bool approved) external override virtual {
+    function setApprovalForAll(address operator, bool approved) external virtual override {
         isApprovedForAll[msg.sender][operator] = approved;
 
         emit ApprovalForAll(msg.sender, operator, approved);
     }
 
-    function uri(uint256 /*assetId*/) external view virtual returns (string memory) {
+    function uri(
+        uint256 /*assetId*/
+    ) external view virtual returns (string memory) {
         return "";
     }
 }

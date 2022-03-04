@@ -1,15 +1,12 @@
 {
     "compilerOptions": {
-        "target": "esnext",
+        "target": "es2018",
         "module": "commonjs",
-        "moduleResolution": "node",
         "strict": true,
-        "jsx": "preserve",
-        "sourceMap": true,
-        "resolveJsonModule": true,
         "esModuleInterop": true,
-        "lib": ["esnext", "dom"],
-        "types": ["vite/client", "node"]
+        "outDir": "dist",
+        "declaration": true
     },
-    "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"]
+    "include": ["./scripts", "./test", "./typechain"],
+    "files": ["./hardhat.config.ts"]
 }
