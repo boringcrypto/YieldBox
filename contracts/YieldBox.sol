@@ -24,201 +24,22 @@ import "./interfaces/IWrappedNative.sol";
 import "./interfaces/IStrategy.sol";
 import "@boringcrypto/boring-solidity/contracts/interfaces/IERC1155.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/Base64.sol";
-import "@boringcrypto/boring-solidity/contracts/libraries/BoringAddress.sol";
-import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "@boringcrypto/boring-solidity/contracts/Domain.sol";
 import "./ERC1155TokenReceiver.sol";
 import "./ERC1155.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
-import "./YieldBoxBase.sol";
-
-// An asset is a token + a strategy
-struct Asset {
-    TokenType tokenType;
-    address contractAddress;
-    IStrategy strategy;
-    uint256 tokenId;
-}
-
-struct NativeAsset {
-    string name;
-    string symbol;
-    uint8 decimals;
-}
-
-contract AssetRegister {
-    using BoringAddress for address;
-
-    // ids start at 1 so that id 0 means it's not yet registered
-    mapping(TokenType => mapping(address => mapping(IStrategy => mapping(uint256 => uint256)))) public ids;
-    Asset[] public assets;
-
-    constructor() {
-        assets.push(Asset(TokenType.EIP20, address(0), NO_STRATEGY, 0));
-    }
-
-    function registerAsset(TokenType tokenType, address contractAddress, IStrategy strategy, uint256 tokenId) public returns (uint256 assetId) {
-        // Checks
-        assetId = ids[tokenType][contractAddress][strategy][tokenId];
-
-        // If assetId is 0, this is a new asset that needs to be registered
-        if (assetId == 0) {
-            // Only do these checks if a new asset needs to be created
-            require(tokenId == 0 || tokenType != TokenType.EIP20, "YieldBox: No tokenId for ERC20");
-            require(strategy == NO_STRATEGY || (tokenType == strategy.tokenType() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()), "YieldBox: Strategy mismatch");
-            // If a new token gets added, the isContract checks that this is a deployed contract. Needed for security.
-            // Prevents getting shares for a future token whose address is known in advance. For instance a token that will be deployed with CREATE2 in the future or while the contract creation is
-            // in the mempool
-            require(contractAddress.isContract(), "YieldBox: Not a token");
-
-            // Effects
-            assetId = assets.length;
-            assets.push(Asset(tokenType, contractAddress, strategy, tokenId));
-            ids[tokenType][contractAddress][strategy][tokenId] = assetId;
-        }
-    }
-}
-
-contract NativeTokenVault is ERC1155, AssetRegister {
-    mapping(uint256 => NativeAsset) public nativeAssets;
-    mapping(uint256 => address) public owner;
-    mapping(uint256 => address) public pendingOwner;
-
-    event OwnershipTransferred(uint256 indexed assetId, address indexed previousOwner, address indexed newOwner);
-
-    /// @notice Only allows the `owner` to execute the function.
-    modifier onlyOwner(uint256 assetId) {
-        require(msg.sender == owner[assetId], "NTV: caller is not the owner");
-        _;
-    }    
-
-    /// @notice Transfers ownership to `newOwner`. Either directly or claimable by the new pending owner.
-    /// Can only be invoked by the current `owner`.
-    /// @param newOwner Address of the new owner.
-    /// @param direct True if `newOwner` should be set immediately. False if `newOwner` needs to use `claimOwnership`.
-    /// @param renounce Allows the `newOwner` to be `address(0)` if `direct` and `renounce` is True. Has no effect otherwise.
-    function transferOwnership(
-        uint256 assetId,
-        address newOwner,
-        bool direct,
-        bool renounce
-    ) public onlyOwner(assetId) {
-        if (direct) {
-            // Checks
-            require(newOwner != address(0) || renounce, "NTV: zero address");
-
-            // Effects
-            emit OwnershipTransferred(assetId, owner[assetId], newOwner);
-            owner[assetId] = newOwner;
-            pendingOwner[assetId] = address(0);
-        } else {
-            // Effects
-            pendingOwner[assetId] = newOwner;
-        }
-    }
-
-    /// @notice Needs to be called by `pendingOwner` to claim ownership.
-    function claimOwnership(uint256 assetId) public {
-        address _pendingOwner = pendingOwner[assetId];
-
-        // Checks
-        require(msg.sender == _pendingOwner, "NTV: caller != pending owner");
-
-        // Effects
-        emit OwnershipTransferred(assetId, owner[assetId], _pendingOwner);
-        owner[assetId] = _pendingOwner;
-        pendingOwner[assetId] = address(0);
-    }
-
-    function createToken(string calldata name, string calldata symbol, uint8 decimals) public {
-        uint256 assetId = registerAsset(TokenType.Native, address(0), NO_STRATEGY, 0);
-        // Initial supply is 0, use owner can mint. For a fixed supply the owner can mint and revoke ownership.
-        // The msg.sender is the initial owner, can be changed after.
-        nativeAssets[assetId] = NativeAsset(name, symbol, decimals);
-        owner[assetId] = msg.sender;
-
-        emit OwnershipTransferred(assetId, address(0), msg.sender);
-    }
-
-    function mint(uint256 assetId, address to, uint256 amount) public onlyOwner(assetId) {
-        _mint(to, assetId, amount);
-    }
-
-    function burn(uint256 assetId, uint256 amount) public {
-        require(assets[assetId].tokenType == TokenType.Native, "NTV: Not native");
-        _burn(msg.sender, assetId, amount);
-    }
-}
-
-contract YieldBoxURIBuilder {
-    using BoringERC20 for IERC20;
-    using Strings for uint256;
-    using Base64 for bytes;
-
-    YieldBox immutable public yieldBox;
-
-    constructor() {
-        yieldBox = YieldBox(payable(msg.sender));
-    }
-
-    struct AssetDetails {
-        string tokenType;
-        string name;
-        string symbol;
-        uint256 decimals;
-    }
-
-    function uri(uint256 assetId) external view returns (string memory) {
-        AssetDetails memory details;
-        (TokenType tokenType, address contractAddress, IStrategy strategy, uint256 tokenId) = yieldBox.assets(assetId);
-        if (tokenType == TokenType.EIP1155) {
-            details.tokenType = "ERC1155";
-            details.name = string(abi.encodePacked(
-                "ERC1155: ",
-                uint256(uint160(contractAddress)).toHexString(20),
-                ", tokenID: ",
-                tokenId.toString()
-            ));
-            details.symbol = "ERC1155";
-        } else if (tokenType == TokenType.EIP20) {
-            IERC20 token = IERC20(contractAddress);
-            details = AssetDetails(
-                "ERC20",
-                token.safeName(),
-                token.safeSymbol(),
-                token.safeDecimals()
-            );
-        } else if (tokenType == TokenType.Native) {
-            details.tokenType = "Native";
-            (details.name, details.symbol, details.decimals) = yieldBox.nativeAssets(assetId);
-        }
-
-        return
-            abi.encodePacked(
-                '{"name":"',
-                    details.name,
-                    '","symbol":"',
-                    details.symbol,
-                    tokenType == TokenType.EIP1155 ? "" : '","decimals":',
-                    tokenType == TokenType.EIP1155 ? "" : details.decimals.toString(),
-                    '","properties":{',
-                        '{"strategy":"',
-                            uint256(uint160(address(strategy))).toHexString(20),
-                        "}"
-                "}}"
-            )
-            .encode();
-    }
-}
+import "./AssetRegister.sol";
+import "./NativeTokenFactory.sol";
+import "./YieldBoxURIBuilder.sol";
 
 /// @title YieldBox
 /// @author BoringCrypto, Keno
 /// @notice The YieldBox is a vault for tokens. The stored tokens can assigned to strategies.
 /// Yield from this will go to the token depositors.
 /// Any funds transfered directly onto the YieldBox will be lost, use the deposit function instead.
-contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenVault, ERC1155TokenReceiver {
+contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenFactory, ERC1155TokenReceiver {
     using BoringAddress for address;
     using BoringERC20 for IERC20;
     using BoringERC20 for IWrappedNative;
