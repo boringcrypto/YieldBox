@@ -13,6 +13,7 @@ abstract contract ERC1155 is IERC1155 {
     // mappings
     mapping(address => mapping(address => bool)) public override isApprovedForAll; // map of operator approval
     mapping(address => mapping(uint256 => uint256)) public override balanceOf; // map of tokens owned by
+    mapping(uint256 => uint256) public totalSupply; // totalSupply per token
 
     function supportsInterface(bytes4 interfaceID) public pure override returns (bool) {
         return
@@ -45,6 +46,7 @@ abstract contract ERC1155 is IERC1155 {
         require(to != address(0), "No 0 address");
 
         balanceOf[to][id] += value;
+        totalSupply[id] += value;
 
         emit TransferSingle(msg.sender, address(0), to, id, value);
     }
@@ -54,7 +56,8 @@ abstract contract ERC1155 is IERC1155 {
         uint256 id,
         uint256 value
     ) internal {
-        balanceOf[from][id] += value;
+        balanceOf[from][id] -= value;
+        totalSupply[id] -= value;
 
         emit TransferSingle(msg.sender, from, address(0), id, value);
     }

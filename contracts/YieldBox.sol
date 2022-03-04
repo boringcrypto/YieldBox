@@ -33,12 +33,39 @@ import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 import "./YieldBoxBase.sol";
 
+contract AssetRegister {
+    // ids start at 1 so that id 0 means it's not yet registered
+    mapping(TokenType => mapping(address => mapping(IStrategy => mapping(uint256 => uint256)))) public ids;
+    Asset[] public assets;
+
+    constructor() {
+        assets.push(Asset(TokenType.EIP20, address(0), NO_STRATEGY, 0));
+    }
+
+    function registerAsset(TokenType tokenType, address contractAddress, IStrategy strategy, uint256 tokenId) public returns (uint256 assetId) {
+        // Checks
+        assetId = ids[tokenType][contractAddress][strategy][tokenId];
+
+        // If assetId is 0, this is a new asset that needs to be registered
+        if (assetId == 0) {
+            // Only do these checks if a new asset needs to be created
+            require(tokenId == 0 || tokenType != TokenType.EIP20, "YieldBox: No tokenId for ERC20");
+            require(strategy == NO_STRATEGY || (tokenType == strategy.tokenType() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()), "YieldBox: Strategy mismatch");
+
+            // Effects
+            assetId = assets.length;
+            assets.push(Asset(tokenType, contractAddress, strategy, tokenId));
+            ids[tokenType][contractAddress][strategy][tokenId] = assetId;
+        }
+    }
+}
+
 /// @title YieldBox
 /// @author BoringCrypto, Keno
 /// @notice The YieldBox is a vault for tokens. The stored tokens can assigned to strategies.
 /// Yield from this will go to the token depositors.
 /// Any funds transfered directly onto the YieldBox will be lost, use the deposit function instead.
-contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155TokenReceiver {
+contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155TokenReceiver, AssetRegister {
     using BoringAddress for address;
     using BoringERC20 for IERC20;
     using BoringERC20 for IWrappedNative;
@@ -57,20 +84,12 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
 
     IWrappedNative private immutable wrappedNative;
 
-    // ids start at 1 so that id 0 means it's not yet registered
-    mapping(TokenType => mapping(address => mapping(IStrategy => mapping(uint256 => uint256)))) public ids;
-    Asset[] public assets;
-
-    // Total shares per asset
-    mapping(uint256 => uint256) public totalShares;
-
     // ******************* //
     // *** CONSTRUCTOR *** //
     // ******************* //
 
     constructor(IWrappedNative wrappedNative_) {
         wrappedNative = wrappedNative_;
-        assets.push(Asset(TokenType.EIP20, address(0), NO_STRATEGY, 0));
     }
 
     // ***************** //
@@ -95,7 +114,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
 
     /// @dev Returns the total balance of `token` this contracts holds,
     /// plus the total amount this contract thinks the strategy holds.
-    function _tokenBalanceOf(Asset memory asset) internal view returns (uint256 amount) {
+    function _tokenBalanceOf(Asset storage asset) internal view returns (uint256 amount) {
         if (asset.strategy == NO_STRATEGY) {
             if (asset.standard == TokenType.EIP20) {
                 return IERC20(asset.contractAddress).safeBalanceOf(address(this));
@@ -110,49 +129,6 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
     // ************************ //
     // *** PUBLIC FUNCTIONS *** //
     // ************************ //
-
-    /// @dev Helper function to represent an `amount` of `token` in shares.
-    /// @param assetId The id of the asset.
-    /// @param amount The `token` amount.
-    /// @param roundUp If the result `share` should be rounded up.
-    /// @return share The token amount represented in shares.
-    function toShare(
-        uint256 assetId,
-        uint256 amount,
-        bool roundUp
-    ) external view returns (uint256 share) {
-        share = amount._toShares(totalShares[assetId], _tokenBalanceOf(assets[assetId]), roundUp);
-    }
-
-    /// @dev Helper function represent shares back into the `token` amount.
-    /// @param assetId The id of the asset.
-    /// @param share The amount of shares.
-    /// @param roundUp If the result should be rounded up.
-    /// @return amount The share amount back into native representation.
-    function toAmount(
-        uint256 assetId,
-        uint256 share,
-        bool roundUp
-    ) external view returns (uint256 amount) {
-        amount = share._toAmount(totalShares[assetId], _tokenBalanceOf(assets[assetId]), roundUp);
-    }
-
-    function registerAsset(TokenType tokenType, address contractAddress, IStrategy strategy, uint256 tokenId) public returns (uint256 assetId) {
-        // Checks
-        assetId = ids[tokenType][contractAddress][strategy][tokenId];
-
-        // If assetId is 0, this is a new asset that needs to be registered
-        if (assetId == 0) {
-            // Only do these checks if a new asset needs to be created
-            require(tokenId == 0 || tokenType != TokenType.EIP20, "YieldBox: No tokenId for ERC20");
-            require(strategy == NO_STRATEGY || (tokenType == strategy.tokenType() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()), "YieldBox: Strategy mismatch");
-
-            // Effects
-            assetId = assets.length;
-            assets.push(Asset(tokenType, contractAddress, strategy, tokenId));
-            ids[tokenType][contractAddress][strategy][tokenId] = assetId;
-        }
-    }
 
     /// @notice Deposit an amount of `token` represented in either `amount` or `share`.
     /// @param assetId The id of the asset.
@@ -169,9 +145,6 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
         uint256 amount,
         uint256 share
     ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
-        // Checks
-        require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
-
         // Effects
         Asset storage asset = assets[assetId];
         uint256 totalAmount = _tokenBalanceOf(asset);
@@ -187,14 +160,13 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
 
         if (share == 0) {
             // value of the share may be lower than the amount due to rounding, that's ok
-            share = amount._toShares(totalShares[assetId], totalAmount, false);
+            share = amount._toShares(totalSupply[assetId], totalAmount, false);
         } else {
             // amount may be lower than the value of share due to rounding, in that case, add 1 to amount (Always round up)
-            amount = share._toAmount(totalShares[assetId], totalAmount, true);
+            amount = share._toAmount(totalSupply[assetId], totalAmount, true);
         }
 
-        balanceOf[to][assetId] += share;
-        totalShares[assetId] += share;
+        _mint(to, assetId, share);
 
         // Interactions
         if (asset.standard == TokenType.EIP20) {
@@ -202,9 +174,8 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
         } else if (asset.standard == TokenType.EIP1155) {
             IERC1155(asset.contractAddress).safeTransferFrom(from, asset.strategy == NO_STRATEGY ? address(this) : address(asset.strategy), asset.tokenId, amount, "");
         }
-        emit TransferSingle(msg.sender, address(0), to, assetId, share);
-        amountOut = amount;
-        shareOut = share;
+
+        return (amount, share);
     }
 
     function depositETHAsset(
@@ -212,25 +183,22 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
         address to
     ) public payable returns (uint256 amountOut, uint256 shareOut) {
         // Checks
-        require(to != address(0), "YieldBox: 'to' not set"); // To avoid a bad UI from burning funds
         Asset storage asset = assets[assetId];
         require(asset.standard == TokenType.EIP20 && asset.contractAddress == address(wrappedNative), "YieldBox: not WETH");
 
         // Effects
         uint256 amount = msg.value;
-        uint256 share = amount._toShares(totalShares[assetId], _tokenBalanceOf(asset), false);
+        uint256 share = amount._toShares(totalSupply[assetId], _tokenBalanceOf(asset), false);
 
-        balanceOf[to][assetId] += share;
-        totalShares[assetId] += share;
+        _mint(to, assetId, share);
 
         // Interactions
         wrappedNative.deposit{value: amount}();
         if (asset.strategy != NO_STRATEGY) {
             wrappedNative.safeTransfer(address(asset.strategy), amount);
         }
-        emit TransferSingle(msg.sender, address(0), to, assetId, share);
-        amountOut = amount;
-        shareOut = share;
+
+        return (amount, share);
     }
 
     /// @notice Withdraws an amount of `token` from a user account.
@@ -246,22 +214,18 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
         uint256 amount,
         uint256 share
     ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
-        // Checks
-        require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
-
         // Effects
         Asset storage asset = assets[assetId];
         uint256 totalAmount = _tokenBalanceOf(asset);
         if (share == 0) {
             // value of the share paid could be lower than the amount paid due to rounding, in that case, add a share (Always round up)
-            share = amount._toShares(totalShares[assetId], totalAmount, true);
+            share = amount._toShares(totalSupply[assetId], totalAmount, true);
         } else {
             // amount may be lower than the value of share due to rounding, that's ok
-            amount = share._toAmount(totalShares[assetId], totalAmount, false);
+            amount = share._toAmount(totalSupply[assetId], totalAmount, false);
         }
 
-        balanceOf[from][assetId] -= share;
-        totalShares[assetId] -= share;
+        _burn(from, assetId, share);
 
         // Interactions
         if (asset.strategy == NO_STRATEGY) {
@@ -274,9 +238,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
             asset.strategy.withdraw(amount, to);
         }
 
-        emit TransferSingle(msg.sender, from, address(0), assetId, share);
-        amountOut = amount;
-        shareOut = share;
+        return (amount, share);
     }
 
     function withdrawETH(
@@ -287,7 +249,6 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
         uint256 share
     ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
         // Checks
-        require(to != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
         Asset storage asset = assets[assetId];
         require(asset.standard == TokenType.EIP20 && asset.contractAddress == address(wrappedNative), "YieldBox: not WETH");
 
@@ -295,14 +256,13 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
         uint256 totalAmount = _tokenBalanceOf(asset);
         if (share == 0) {
             // value of the share paid could be lower than the amount paid due to rounding, in that case, add a share (Always round up)
-            share = amount._toShares(totalShares[assetId], totalAmount, true);
+            share = amount._toShares(totalSupply[assetId], totalAmount, true);
         } else {
             // amount may be lower than the value of share due to rounding, that's ok
-            amount = share._toAmount(totalShares[assetId], totalAmount, false);
+            amount = share._toAmount(totalSupply[assetId], totalAmount, false);
         }
 
-        balanceOf[from][assetId] -= share;
-        totalShares[assetId] -= share;
+        _burn(from, assetId, share);
 
         // Interactions
         if (asset.strategy == NO_STRATEGY) {
@@ -314,9 +274,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
             asset.strategy.withdrawETH(amount, to);
         }
 
-        emit TransferSingle(msg.sender, from, address(0), assetId, share);
-        amountOut = amount;
-        shareOut = share;
+        return (amount, share);
     }
 
     function _requireTransferAllowed(address from) internal view override allowed(from) { }
@@ -442,6 +400,33 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, ERC1155, ERC1155Tok
     receive() external payable { }
 
     // Helper functions
+    
+    /// @dev Helper function to represent an `amount` of `token` in shares.
+    /// @param assetId The id of the asset.
+    /// @param amount The `token` amount.
+    /// @param roundUp If the result `share` should be rounded up.
+    /// @return share The token amount represented in shares.
+    function toShare(
+        uint256 assetId,
+        uint256 amount,
+        bool roundUp
+    ) external view returns (uint256 share) {
+        share = amount._toShares(totalSupply[assetId], _tokenBalanceOf(assets[assetId]), roundUp);
+    }
+
+    /// @dev Helper function represent shares back into the `token` amount.
+    /// @param assetId The id of the asset.
+    /// @param share The amount of shares.
+    /// @param roundUp If the result should be rounded up.
+    /// @return amount The share amount back into native representation.
+    function toAmount(
+        uint256 assetId,
+        uint256 share,
+        bool roundUp
+    ) external view returns (uint256 amount) {
+        amount = share._toAmount(totalSupply[assetId], _tokenBalanceOf(assets[assetId]), roundUp);
+    }
+
     function deposit(
         TokenType tokenType,
         address contractAddress,
