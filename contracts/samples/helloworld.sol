@@ -3,7 +3,6 @@ pragma solidity 0.8.9;
 import "../YieldBox.sol";
 
 // An example a contract that stores tokens in the YieldBox.
-// A single contract that users can approve for the YieldBox, hence the registerProtocol call.
 // PS. This isn't good code, just kept it simple to illustrate usage.
 contract HelloWorld {
     uint96 private constant EIP20 = 1;
@@ -15,7 +14,7 @@ contract HelloWorld {
     constructor(YieldBox _yieldBox, IERC20 token, IStrategy _strategy) {
         yieldBox = _yieldBox;
         strategy = _strategy;
-        assetId = _yieldBox.registerAsset(TokenType.EIP20, address(token), _strategy, 0);
+        assetId = _yieldBox.registerAsset(TokenType.ERC20, address(token), _strategy, 0);
     }
 
     mapping(address => uint256) public yieldBoxShares;

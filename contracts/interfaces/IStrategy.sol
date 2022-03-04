@@ -5,7 +5,7 @@ pragma experimental ABIEncoderV2;
 import "../enums/YieldBoxTokenType.sol";
 
 interface IStrategy {
-    /// Each strategy only works with a single asset. This shoudl help make implementations simpler and more readable.
+    /// Each strategy only works with a single asset. This should help make implementations simpler and more readable.
     /// To safe gas a proxy pattern (YieldBox factory) could be used to deploy the same strategy for multiple tokens.
 
     /// It is recommended that strategies keep a small amount of funds uninvested (like 5%) to handle small withdrawals

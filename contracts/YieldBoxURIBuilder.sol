@@ -3,18 +3,18 @@ pragma solidity 0.8.9;
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/Base64.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
-import "./YieldBoxBase.sol";
-import "./YieldBox.sol";
+import "./interfaces/IYieldBox.sol";
 
 contract YieldBoxURIBuilder {
     using BoringERC20 for IERC20;
     using Strings for uint256;
     using Base64 for bytes;
 
-    YieldBox immutable public yieldBox;
+    IYieldBox public yieldBox;
 
-    constructor() {
-        yieldBox = YieldBox(payable(msg.sender));
+    function setYieldBox() public {
+        require(address(yieldBox) == address(0));
+        yieldBox = IYieldBox(payable(msg.sender));
     }
 
     struct AssetDetails {
@@ -27,7 +27,7 @@ contract YieldBoxURIBuilder {
     function uri(uint256 assetId) external view returns (string memory) {
         AssetDetails memory details;
         (TokenType tokenType, address contractAddress, IStrategy strategy, uint256 tokenId) = yieldBox.assets(assetId);
-        if (tokenType == TokenType.EIP1155) {
+        if (tokenType == TokenType.ERC1155) {
             // Contracts can't retrieve URIs, so the details are out of reach
             details.tokenType = "ERC1155";
             details.name = string(abi.encodePacked(
@@ -37,7 +37,7 @@ contract YieldBoxURIBuilder {
                 tokenId.toString()
             ));
             details.symbol = "ERC1155";
-        } else if (tokenType == TokenType.EIP20) {
+        } else if (tokenType == TokenType.ERC20) {
             IERC20 token = IERC20(contractAddress);
             details = AssetDetails(
                 "ERC20",
@@ -56,8 +56,8 @@ contract YieldBoxURIBuilder {
                     details.name,
                     '","symbol":"',
                     details.symbol,
-                    tokenType == TokenType.EIP1155 ? "" : '","decimals":',
-                    tokenType == TokenType.EIP1155 ? "" : details.decimals.toString(),
+                    tokenType == TokenType.ERC1155 ? "" : '","decimals":',
+                    tokenType == TokenType.ERC1155 ? "" : details.decimals.toString(),
                     '","properties":{',
                         '{"strategy":"',
                             uint256(uint160(address(strategy))).toHexString(20),

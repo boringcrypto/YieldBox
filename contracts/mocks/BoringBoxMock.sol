@@ -4,7 +4,7 @@ pragma experimental ABIEncoderV2;
 import "../YieldBox.sol";
 
 contract YieldBoxMock is YieldBox {
-    constructor(IWrappedNative wrappedNative) YieldBox(wrappedNative) {
+    constructor(IWrappedNative wrappedNative, YieldBoxURIBuilder uriBuilder) YieldBox(wrappedNative, uriBuilder) {
         return;
     }
 }

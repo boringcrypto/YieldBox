@@ -13,7 +13,7 @@ import "./ERC1155.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 
-library BoringRebase {
+library YieldBoxRebase {
     /// @notice Calculates the base value in relationship to `elastic` and `total`.
     function _toShares(
         uint256 amount,

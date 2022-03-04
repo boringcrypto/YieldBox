@@ -15,7 +15,7 @@ module.exports = async function (hre) {
   const gasPrice = await signers[0].provider.getGasPrice()
   let multiplier = hre.network.tags && hre.network.tags.staging ? 2 : 1
   let finalGasPrice = gasPrice.mul(multiplier)
-  const gasLimit = 5000000
+  const gasLimit = 10000000
   if (chainId == "88" || chainId == "89") {
     finalGasPrice = getBigNumber("10000", 9)
   }
@@ -29,10 +29,21 @@ module.exports = async function (hre) {
   });
   await tx.wait();
 
-  console.log("Deploying contract")
-  tx = await hre.deployments.deploy("YieldBox", {
+  console.log("Deploying YieldBox contract")
+  const uriBuilder = await hre.deployments.deploy("YieldBoxURIBuilder", {
     from: signers[1].address,
-    args: [weth(chainId)],
+    args: [],
+    log: true,
+    deterministicDeployment: false,
+    gasLimit: gasLimit,
+    gasPrice: finalGasPrice
+  })
+  console.log(uriBuilder.address);
+
+  console.log("Deploying YieldBox contract")
+  const yieldBox = await hre.deployments.deploy("YieldBox", {
+    from: signers[1].address,
+    args: [weth(chainId), uriBuilder.address],
     log: true,
     deterministicDeployment: false,
     gasLimit: gasLimit,

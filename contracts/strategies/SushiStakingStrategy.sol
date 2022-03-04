@@ -18,7 +18,7 @@ contract SushiStakingStrategy is IStrategy {
     string public constant override name = "SushiStaking";
     string public constant override description = "Stakes SUSHI into the SushiBar for xSushi";
 
-    TokenType public constant override tokenType = TokenType.EIP20;
+    TokenType public constant override tokenType = TokenType.ERC20;
     address public constant override contractAddress = 0x6B3595068778DD592e39A122f4f5a5cF09C90fE2;
     uint256 public constant override tokenId = 0;
 
@@ -114,6 +114,6 @@ contract SushiStakingStrategy is IStrategy {
     /// the strategy should divest enough from the strategy to complete the withdrawal and rebalance the reserve.
     /// Only accept this call from the YieldBox
     function withdrawETH(uint256 amount, address to) external override {
-        // Not implemented, not applicable    
+        // Not implemented, not applicable
     }
 }
