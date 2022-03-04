@@ -31,7 +31,7 @@ contract SushiBarMock is ERC20 {
         // Calculate and mint the amount of xSushi the Sushi is worth. The ratio will change overtime,
         // as xSushi is burned/minted and Sushi deposited + gained from fees / withdrawn.
         else {
-            uint256 what = _amount * totalShares / totalSushi;
+            uint256 what = (_amount * totalShares) / totalSushi;
             _mint(msg.sender, what);
         }
         // Lock the Sushi in the contract
@@ -44,7 +44,7 @@ contract SushiBarMock is ERC20 {
         // Gets the amount of xSushi in existence
         uint256 totalShares = totalSupply;
         // Calculates the amount of Sushi the xSushi is worth
-        uint256 what = _share * sushi.balanceOf(address(this)) / totalShares;
+        uint256 what = (_share * sushi.balanceOf(address(this))) / totalShares;
         _burn(msg.sender, _share);
         sushi.transfer(msg.sender, what);
     }

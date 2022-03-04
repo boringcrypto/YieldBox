@@ -22,7 +22,12 @@ contract AssetRegister {
         assets.push(Asset(TokenType.ERC20, address(0), NO_STRATEGY, 0));
     }
 
-    function registerAsset(TokenType tokenType, address contractAddress, IStrategy strategy, uint256 tokenId) public returns (uint256 assetId) {
+    function registerAsset(
+        TokenType tokenType,
+        address contractAddress,
+        IStrategy strategy,
+        uint256 tokenId
+    ) public returns (uint256 assetId) {
         // Checks
         assetId = ids[tokenType][contractAddress][strategy][tokenId];
 
@@ -30,7 +35,11 @@ contract AssetRegister {
         if (assetId == 0) {
             // Only do these checks if a new asset needs to be created
             require(tokenId == 0 || tokenType != TokenType.ERC20, "YieldBox: No tokenId for ERC20");
-            require(strategy == NO_STRATEGY || (tokenType == strategy.tokenType() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()), "YieldBox: Strategy mismatch");
+            require(
+                strategy == NO_STRATEGY ||
+                    (tokenType == strategy.tokenType() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()),
+                "YieldBox: Strategy mismatch"
+            );
             // If a new token gets added, the isContract checks that this is a deployed contract. Needed for security.
             // Prevents getting shares for a future token whose address is known in advance. For instance a token that will be deployed with CREATE2 in the future or while the contract creation is
             // in the mempool
@@ -43,4 +52,3 @@ contract AssetRegister {
         }
     }
 }
-

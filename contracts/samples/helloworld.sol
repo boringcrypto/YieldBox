@@ -11,7 +11,11 @@ contract HelloWorld {
     IStrategy public immutable strategy;
     uint256 public immutable assetId;
 
-    constructor(YieldBox _yieldBox, IERC20 token, IStrategy _strategy) {
+    constructor(
+        YieldBox _yieldBox,
+        IERC20 token,
+        IStrategy _strategy
+    ) {
         yieldBox = _yieldBox;
         strategy = _strategy;
         assetId = _yieldBox.registerAsset(TokenType.ERC20, address(token), _strategy, 0);

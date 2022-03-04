@@ -13,7 +13,7 @@ contract YieldBoxURIBuilder {
     IYieldBox public yieldBox;
 
     function setYieldBox() public {
-        require(address(yieldBox) == address(0));
+        require(address(yieldBox) == address(0), "YieldBox already set");
         yieldBox = IYieldBox(payable(msg.sender));
     }
 
@@ -48,15 +48,15 @@ contract YieldBoxURIBuilder {
                     "data:application/json;base64,",
                     abi
                         .encodePacked(
-                            '{"name":"',
+                            "{'name':'",
                             details.name,
-                            '","symbol":"',
+                            "','symbol':'",
                             details.symbol,
-                            tokenType == TokenType.ERC1155 ? "" : '","decimals":',
+                            tokenType == TokenType.ERC1155 ? "" : "','decimals':",
                             tokenType == TokenType.ERC1155 ? "" : details.decimals.toString(),
-                            ',"properties":{"strategy":"',
+                            ",'properties':{'strategy':'",
                             uint256(uint160(address(strategy))).toHexString(20),
-                            '"}}'
+                            "'}}"
                         )
                         .encode()
                 )

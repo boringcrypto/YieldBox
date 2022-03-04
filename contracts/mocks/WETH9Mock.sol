@@ -26,7 +26,7 @@ contract WETH9Mock {
         require(balanceOf[msg.sender] >= wad, "WETH9: Error");
         balanceOf[msg.sender] -= wad;
         bool success;
-        (success,) = msg.sender.call{value: wad}("");
+        (success, ) = msg.sender.call{ value: wad }("");
         emit Withdrawal(msg.sender, wad);
     }
 

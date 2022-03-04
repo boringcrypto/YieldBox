@@ -9,6 +9,7 @@ import "../interfaces/IStrategy.sol";
 
 interface ISushiBar is IERC20 {
     function enter(uint256 amount) external;
+
     function leave(uint256 share) external;
 }
 
@@ -36,8 +37,8 @@ contract SushiStakingStrategy is IStrategy {
     }
 
     function _currentBalance() private view returns (uint256 amount) {
-        return sushi.balanceOf(address(this))
-            + sushi.balanceOf(address(sushiBar)) * sushiBar.balanceOf(address(this)) / sushiBar.totalSupply();
+        return
+            sushi.balanceOf(address(this)) + (sushi.balanceOf(address(sushiBar)) * sushiBar.balanceOf(address(this))) / sushiBar.totalSupply();
     }
 
     function update() public {
@@ -68,13 +69,11 @@ contract SushiStakingStrategy is IStrategy {
         // Update cached balance with the new added amount
         _balance += amount;
         // Get the size of the reserve in % (1e18 based)
-        uint256 reservePercent = sushi.balanceOf(address(this)) * 100e18 / _balance;
+        uint256 reservePercent = (sushi.balanceOf(address(this)) * 100e18) / _balance;
 
         // Check if the reserve is too large, if so invest it
         if (reservePercent > MAX_RESERVE_PERCENT) {
-            sushiBar.enter(
-                _balance * (reservePercent - TARGET_RESERVE_PERCENT) / 100e18
-            );
+            sushiBar.enter((_balance * (reservePercent - TARGET_RESERVE_PERCENT)) / 100e18);
         }
     }
 
@@ -96,9 +95,9 @@ contract SushiStakingStrategy is IStrategy {
                 uint256 totalSushi = sushi.balanceOf(address(sushiBar));
 
                 // The amount of Sushi that should invested after withdrawal
-                uint256 targetSushi = _balance * (100e18 - TARGET_RESERVE_PERCENT) / 100e18;
+                uint256 targetSushi = (_balance * (100e18 - TARGET_RESERVE_PERCENT)) / 100e18;
                 // The amount of shares (xSushi) that should be invested after withdrawal
-                uint256 targetShares = targetSushi * totalShares / totalSushi;
+                uint256 targetShares = (targetSushi * totalShares) / totalSushi;
 
                 sushiBar.leave(shares - targetShares);
             }

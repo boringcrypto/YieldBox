@@ -5,7 +5,13 @@ import "@boringcrypto/boring-solidity/contracts/interfaces/IERC1155TokenReceiver
 
 contract ERC1155TokenReceiver is IERC1155TokenReceiver {
     // ERC1155 receivers that simple accept the transfer
-    function onERC1155Received(address, address, uint256, uint256, bytes calldata) external pure override returns (bytes4) {
+    function onERC1155Received(
+        address,
+        address,
+        uint256,
+        uint256,
+        bytes calldata
+    ) external pure override returns (bytes4) {
         return 0xf23a6e61; //bytes4(keccak256("onERC1155Received(address,address,uint256,uint256,bytes)"))
     }
 
@@ -18,5 +24,4 @@ contract ERC1155TokenReceiver is IERC1155TokenReceiver {
     ) external pure override returns (bytes4) {
         return 0xbc197c81; //bytes4(keccak256("onERC1155BatchReceived(address,address,uint256[],uint256[],bytes)"))
     }
-
 }

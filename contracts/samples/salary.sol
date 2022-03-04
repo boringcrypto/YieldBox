@@ -139,10 +139,10 @@ contract Salary is BoringBatchable {
                 // The percentage paid out during the slope
                 uint256 slopePercent = 1e18 - salary.cliffPercent;
                 // The percentage payable on the slope added to the cliff percentage
-                payablePercent = payablePercent + (slopePercent * timeSinceCliff / timeSlope);
+                payablePercent = payablePercent + ((slopePercent * timeSinceCliff) / timeSlope);
             }
             // The share payable
-            shares = salary.shares * payablePercent / 1e18;
+            shares = (salary.shares * payablePercent) / 1e18;
         }
 
         // Remove any shares already wiythdrawn, if negative, return 0

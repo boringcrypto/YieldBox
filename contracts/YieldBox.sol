@@ -16,7 +16,7 @@
 
 // Since the contract is permissionless, only one deployment per chain is needed. If it's not yet deployed
 // on a chain or if you want to make a derivative work, contact @BoringCrypto. The core of YieldBox is
-// copyrighted. Most of the contracts that it builds on are open source though. 
+// copyrighted. Most of the contracts that it builds on are open source though.
 
 pragma solidity 0.8.9;
 pragma experimental ABIEncoderV2;
@@ -136,9 +136,19 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenFactory,
 
         // Interactions
         if (asset.tokenType == TokenType.ERC20) {
-            IERC20(asset.contractAddress).safeTransferFrom(from, asset.strategy == NO_STRATEGY ? address(this) : address(asset.strategy), amount);
+            IERC20(asset.contractAddress).safeTransferFrom(
+                from,
+                asset.strategy == NO_STRATEGY ? address(this) : address(asset.strategy),
+                amount
+            );
         } else if (asset.tokenType == TokenType.ERC1155) {
-            IERC1155(asset.contractAddress).safeTransferFrom(from, asset.strategy == NO_STRATEGY ? address(this) : address(asset.strategy), asset.tokenId, amount, "");
+            IERC1155(asset.contractAddress).safeTransferFrom(
+                from,
+                asset.strategy == NO_STRATEGY ? address(this) : address(asset.strategy),
+                asset.tokenId,
+                amount,
+                ""
+            );
         }
 
         if (asset.strategy != NO_STRATEGY) {
@@ -148,10 +158,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenFactory,
         return (amount, share);
     }
 
-    function depositETHAsset(
-        uint256 assetId,
-        address to
-    ) public payable returns (uint256 amountOut, uint256 shareOut) {
+    function depositETHAsset(uint256 assetId, address to) public payable returns (uint256 amountOut, uint256 shareOut) {
         // Checks
         Asset storage asset = assets[assetId];
         require(asset.tokenType == TokenType.ERC20 && asset.contractAddress == address(wrappedNative), "YieldBox: not WETH");
@@ -164,7 +171,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenFactory,
 
         // Interactions
         if (asset.strategy == NO_STRATEGY) {
-            wrappedNative.deposit{value: amount}();
+            wrappedNative.deposit{ value: amount }();
         } else {
             // Strategies will receive the the native currency directly. It is up to the strategy to wrap it if needed
             address(asset.strategy).sendNative(amount);
@@ -222,7 +229,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenFactory,
         return (amount, share);
     }
 
-    function _requireTransferAllowed(address from) internal view override allowed(from) { }
+    function _requireTransferAllowed(address from) internal view override allowed(from) {}
 
     /// @notice Transfer shares from a user account to another one.
     /// @param from which user to pull the tokens.
@@ -333,7 +340,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenFactory,
     }
 
     // Included to support unwrapping wrapped native tokens such as WETH
-    receive() external payable { }
+    receive() external payable {}
 
     // Helper functions
 
@@ -372,14 +379,11 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenFactory,
         address to,
         uint256 amount,
         uint256 share
-    ) public returns (uint256 amountOut, uint256 shareOut)  {
+    ) public returns (uint256 amountOut, uint256 shareOut) {
         return depositAsset(registerAsset(tokenType, contractAddress, strategy, tokenId), from, to, amount, share);
     }
 
-    function depositETH(
-        IStrategy strategy,
-        address to
-    ) public payable returns (uint256 amountOut, uint256 shareOut) {
+    function depositETH(IStrategy strategy, address to) public payable returns (uint256 amountOut, uint256 shareOut) {
         return depositETHAsset(registerAsset(TokenType.ERC20, address(wrappedNative), strategy, 0), to);
     }
 }

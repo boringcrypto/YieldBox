@@ -28,7 +28,7 @@ contract NativeTokenFactory is ERC1155, AssetRegister {
     modifier onlyOwner(uint256 tokenId) {
         require(msg.sender == owner[tokenId], "NTF: caller is not the owner");
         _;
-    }    
+    }
 
     /// @notice Transfers ownership to `newOwner`. Either directly or claimable by the new pending owner.
     /// Can only be invoked by the current `owner`.
@@ -75,7 +75,11 @@ contract NativeTokenFactory is ERC1155, AssetRegister {
     /// @param name The name of the token.
     /// @param symbol The symbol of the token.
     /// @param decimals The number of decimals of the token (this is just for display purposes). Should be set to 18 in normal cases.
-    function createToken(string calldata name, string calldata symbol, uint8 decimals) public {
+    function createToken(
+        string calldata name,
+        string calldata symbol,
+        uint8 decimals
+    ) public {
         uint256 tokenId = registerAsset(TokenType.Native, address(0), NO_STRATEGY, 0);
         // Initial supply is 0, use owner can mint. For a fixed supply the owner can mint and revoke ownership.
         // The msg.sender is the initial owner, can be changed after.
@@ -89,7 +93,11 @@ contract NativeTokenFactory is ERC1155, AssetRegister {
     /// @param tokenId The token to be minted.
     /// @param to The account to transfer the minted tokens to.
     /// @param amount The amount of tokens to mint.
-    function mint(uint256 tokenId, address to, uint256 amount) public onlyOwner(tokenId) {
+    function mint(
+        uint256 tokenId,
+        address to,
+        uint256 amount
+    ) public onlyOwner(tokenId) {
         _mint(to, tokenId, amount);
     }
 

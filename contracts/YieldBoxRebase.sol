@@ -29,10 +29,10 @@ library YieldBoxRebase {
         totalShares_ += 1e8;
 
         // Calculte the shares using te current amount to share ratio
-        share = amount * totalShares_ / totalAmount;
+        share = (amount * totalShares_) / totalAmount;
 
         // Default is to round down (Solidity), round up if required
-        if (roundUp && share * totalAmount / totalShares_ < amount) {
+        if (roundUp && (share * totalAmount) / totalShares_ < amount) {
             share++;
         }
     }
@@ -52,10 +52,10 @@ library YieldBoxRebase {
         totalShares_ += 1e8;
 
         // Calculte the amount using te current amount to share ratio
-        amount = share * totalAmount / totalShares_;
+        amount = (share * totalAmount) / totalShares_;
 
         // Default is to round down (Solidity), round up if required
-        if (roundUp && amount * totalShares_ / totalAmount < share) {
+        if (roundUp && (amount * totalShares_) / totalAmount < share) {
             amount++;
         }
     }
