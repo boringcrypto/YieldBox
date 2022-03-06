@@ -15,6 +15,7 @@ struct NativeToken {
 /// - low and predictable gas usage
 /// - simplified approval
 /// - no hidden features, all these tokens behave the same
+/// TODO: MintBatch? BurnBatch?
 contract NativeTokenFactory is AssetRegister {
     mapping(uint256 => NativeToken) public nativeTokens;
     mapping(uint256 => address) public owner;
@@ -79,12 +80,13 @@ contract NativeTokenFactory is AssetRegister {
         string calldata symbol,
         uint8 decimals
     ) public {
-        uint256 tokenId = registerAsset(TokenType.Native, address(0), NO_STRATEGY, 0);
+        uint256 tokenId = _registerAsset(TokenType.Native, address(0), NO_STRATEGY, 0);
         // Initial supply is 0, use owner can mint. For a fixed supply the owner can mint and revoke ownership.
         // The msg.sender is the initial owner, can be changed after.
         nativeTokens[tokenId] = NativeToken(name, symbol, decimals);
         owner[tokenId] = msg.sender;
 
+        emit TransferSingle(msg.sender, address(0), address(0), tokenId, 0);
         emit OwnershipTransferred(tokenId, address(0), msg.sender);
     }
 

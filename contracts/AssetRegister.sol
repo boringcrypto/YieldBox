@@ -23,12 +23,12 @@ contract AssetRegister is ERC1155 {
         assets.push(Asset(TokenType.ERC20, address(0), NO_STRATEGY, 0));
     }
 
-    function registerAsset(
+    function _registerAsset(
         TokenType tokenType,
         address contractAddress,
         IStrategy strategy,
         uint256 tokenId
-    ) public returns (uint256 assetId) {
+    ) internal returns (uint256 assetId) {
         // Checks
         assetId = ids[tokenType][contractAddress][strategy][tokenId];
 
@@ -44,7 +44,7 @@ contract AssetRegister is ERC1155 {
             // If a new token gets added, the isContract checks that this is a deployed contract. Needed for security.
             // Prevents getting shares for a future token whose address is known in advance. For instance a token that will be deployed with CREATE2 in the future or while the contract creation is
             // in the mempool
-            require(tokenType == TokenType.Native || contractAddress.isContract(), "YieldBox: Not a token");
+            require((tokenType == TokenType.Native && contractAddress == address(0)) || contractAddress.isContract(), "YieldBox: Not a token");
 
             // Effects
             assetId = assets.length;
@@ -54,5 +54,16 @@ contract AssetRegister is ERC1155 {
             // The actual URI isn't emitted here as per EIP1155, because that would make this call super expensive.
             emit URI("", assetId);
         }
+    }
+
+    function registerAsset(
+        TokenType tokenType,
+        address contractAddress,
+        IStrategy strategy,
+        uint256 tokenId
+    ) public returns (uint256 assetId) {
+        // Native assets can only be added internally by the NativeTokenFactory
+        require(tokenType == TokenType.ERC20 || tokenType == TokenType.ERC1155, "AssetManager: cannot add Native");
+        assetId = _registerAsset(tokenType, contractAddress, strategy, tokenId);
     }
 }

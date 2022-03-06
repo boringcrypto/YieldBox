@@ -7,6 +7,9 @@ import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "../enums/YieldBoxTokenType.sol";
 import "../interfaces/IStrategy.sol";
 
+// solhint-disable const-name-snakecase
+// solhint-disable no-empty-blocks
+
 interface ISushiBar is IERC20 {
     function enter(uint256 amount) external;
 
@@ -26,7 +29,7 @@ contract SushiStakingStrategy is IStrategy {
     IERC20 private constant sushi = IERC20(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2);
     ISushiBar private constant sushiBar = ISushiBar(0x8798249c2E607446EfB7Ad49eC89dD1865Ff4272);
 
-    uint256 _balance;
+    uint256 private _balance;
 
     /// Returns the total value the strategy holds (principle + gain) expressed in asset token amount.
     /// This should be cheap in gas to retrieve. Can return a bit less than the actual, but shouldn't return more.
@@ -57,8 +60,8 @@ contract SushiStakingStrategy is IStrategy {
         return sushi.balanceOf(address(this));
     }
 
-    uint256 MAX_RESERVE_PERCENT = 10e18;
-    uint256 TARGET_RESERVE_PERCENT = 5e18;
+    uint256 public constant MAX_RESERVE_PERCENT = 10e18;
+    uint256 public constant TARGET_RESERVE_PERCENT = 5e18;
 
     /// Is called by YieldBox to signal funds have been added, the strategy may choose to act on this
     /// When a large enough deposit is made, this should trigger the strategy to invest into the actual

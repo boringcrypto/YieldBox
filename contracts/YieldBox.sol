@@ -35,6 +35,8 @@ import "./NativeTokenFactory.sol";
 import "./YieldBoxRebase.sol";
 import "./YieldBoxURIBuilder.sol";
 
+// solhint-disable no-empty-blocks
+
 /// @title YieldBox
 /// @author BoringCrypto, Keno
 /// @notice The YieldBox is a vault for tokens. The stored tokens can assigned to strategies.
@@ -120,7 +122,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenFactory,
     ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
         // Checks
         Asset storage asset = assets[assetId];
-        require(asset.tokenType != TokenType.Native);
+        require(asset.tokenType != TokenType.Native, "YieldBox: can't withdraw Native");
 
         // Effects
         uint256 totalAmount = _tokenBalanceOf(asset);
@@ -198,7 +200,7 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenFactory,
     ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
         // Checks
         Asset storage asset = assets[assetId];
-        require(asset.tokenType != TokenType.Native);
+        require(asset.tokenType != TokenType.Native, "YieldBox: can't withdraw Native");
 
         // Effects
         uint256 totalAmount = _tokenBalanceOf(asset);

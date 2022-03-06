@@ -5,7 +5,7 @@ import "@boringcrypto/boring-solidity/contracts/interfaces/IERC1155.sol";
 import "@boringcrypto/boring-solidity/contracts/interfaces/IERC1155TokenReceiver.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringAddress.sol";
 
-// Written by OreNoMochi (https://github.com/OreNoMochii)
+// Written by OreNoMochi (https://github.com/OreNoMochii), BoringCrypto
 
 contract ERC1155 is IERC1155 {
     using BoringAddress for address;
@@ -51,6 +51,8 @@ contract ERC1155 is IERC1155 {
         uint256 id,
         uint256 value
     ) internal {
+        require(from != address(0), "No 0 address");
+
         balanceOf[from][id] -= value;
         totalSupply[id] -= value;
 

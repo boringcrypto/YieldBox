@@ -32,13 +32,14 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
 
-const last_block = process.env.ALCHEMY_API_KEY
-    ? BigNumber.from(
-          JSON.parse(
-              requestSync("GET", "https://api.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey=YourApiKeyToken").body as string
-          ).result
-      )
-    : BigNumber.from(0)
+const last_block =
+    process.env.ALCHEMY_API_KEY && false
+        ? BigNumber.from(
+              JSON.parse(
+                  requestSync("GET", "https://api.etherscan.io/api?module=proxy&action=eth_blockNumber&apikey=YourApiKeyToken").body as string
+              ).result
+          )
+        : BigNumber.from(14333352)
 
 const config: HardhatUserConfig = {
     solidity: {
@@ -70,10 +71,11 @@ const config: HardhatUserConfig = {
         deployer: { default: 0 },
         alice: { default: 1 },
         bob: { default: 2 },
-        dave: { default: 3 },
-        eve: { default: 4 },
-        frank: { default: 5 },
-        grace: { default: 6 },
+        carol: { default: 3 },
+        dave: { default: 4 },
+        eve: { default: 5 },
+        frank: { default: 6 },
+        grace: { default: 7 },
     },
     gasReporter: {
         enabled: true,

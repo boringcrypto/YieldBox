@@ -1,4 +1,5 @@
 {
+    "license": "UNLICENSED",
     "devDependencies": {
         "@boringcrypto/hardhat-framework": "../hardhat-framework",
         "husky": "^7.0.0"
