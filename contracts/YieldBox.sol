@@ -386,7 +386,11 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenFactory,
         return depositAsset(registerAsset(tokenType, contractAddress, strategy, tokenId), from, to, amount, share);
     }
 
-    function depositETH(IStrategy strategy, address to) public payable returns (uint256 amountOut, uint256 shareOut) {
-        return depositETHAsset(registerAsset(TokenType.ERC20, address(wrappedNative), strategy, 0), to);
+    function depositETH(
+        IStrategy strategy,
+        address to,
+        uint256 amount
+    ) public payable returns (uint256 amountOut, uint256 shareOut) {
+        return depositETHAsset(registerAsset(TokenType.ERC20, address(wrappedNative), strategy, 0), to, amount);
     }
 }
