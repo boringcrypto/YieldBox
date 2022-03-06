@@ -13,7 +13,6 @@ describe("ERC1155", function () {
 
     it("Mint tokens", async function () {
         const { deployer, alice, bob, carol } = await ethers.getNamedSigners()
-        const tx = await erc1155.mint(alice.address, 12, 1234)
-        await tx.wait()
+        expect(erc1155.mint(alice.address, 12, 1234)).to.emit(erc1155, "URI").withArgs("", 12)
     })
 })

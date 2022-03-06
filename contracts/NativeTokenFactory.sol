@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.9;
-import "./ERC1155.sol";
 import "./AssetRegister.sol";
 
 struct NativeToken {
@@ -16,7 +15,7 @@ struct NativeToken {
 /// - low and predictable gas usage
 /// - simplified approval
 /// - no hidden features, all these tokens behave the same
-contract NativeTokenFactory is ERC1155, AssetRegister {
+contract NativeTokenFactory is AssetRegister {
     mapping(uint256 => NativeToken) public nativeTokens;
     mapping(uint256 => address) public owner;
     mapping(uint256 => address) public pendingOwner;

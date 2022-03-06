@@ -158,13 +158,16 @@ contract YieldBox is Domain, BoringBatchable, BoringFactory, NativeTokenFactory,
         return (amount, share);
     }
 
-    function depositETHAsset(uint256 assetId, address to) public payable returns (uint256 amountOut, uint256 shareOut) {
+    function depositETHAsset(
+        uint256 assetId,
+        address to,
+        uint256 amount
+    ) public payable returns (uint256 amountOut, uint256 shareOut) {
         // Checks
         Asset storage asset = assets[assetId];
         require(asset.tokenType == TokenType.ERC20 && asset.contractAddress == address(wrappedNative), "YieldBox: not WETH");
 
         // Effects
-        uint256 amount = msg.value;
         uint256 share = amount._toShares(totalSupply[assetId], _tokenBalanceOf(asset), false);
 
         _mint(to, assetId, share);

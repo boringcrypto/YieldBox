@@ -2,6 +2,7 @@
 pragma solidity 0.8.9;
 import "./interfaces/IStrategy.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringAddress.sol";
+import "./ERC1155.sol";
 
 // An asset is a token + a strategy
 struct Asset {
@@ -11,7 +12,7 @@ struct Asset {
     uint256 tokenId;
 }
 
-contract AssetRegister {
+contract AssetRegister is ERC1155 {
     using BoringAddress for address;
 
     // ids start at 1 so that id 0 means it's not yet registered
@@ -49,6 +50,9 @@ contract AssetRegister {
             assetId = assets.length;
             assets.push(Asset(tokenType, contractAddress, strategy, tokenId));
             ids[tokenType][contractAddress][strategy][tokenId] = assetId;
+
+            // The actual URI isn't emitted here as per EIP1155, because that would make this call super expensive.
+            emit URI("", assetId);
         }
     }
 }
