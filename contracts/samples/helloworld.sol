@@ -5,20 +5,12 @@ import "../YieldBox.sol";
 // An example a contract that stores tokens in the YieldBox.
 // PS. This isn't good code, just kept it simple to illustrate usage.
 contract HelloWorld {
-    uint96 private constant EIP20 = 1;
-
     YieldBox public immutable yieldBox;
-    IStrategy public immutable strategy;
     uint256 public immutable assetId;
 
-    constructor(
-        YieldBox _yieldBox,
-        IERC20 token,
-        IStrategy _strategy
-    ) {
+    constructor(YieldBox _yieldBox, IERC20 token) {
         yieldBox = _yieldBox;
-        strategy = _strategy;
-        assetId = _yieldBox.registerAsset(TokenType.ERC20, address(token), _strategy, 0);
+        assetId = _yieldBox.registerAsset(TokenType.ERC20, address(token), IStrategy(address(0)), 0);
     }
 
     mapping(address => uint256) public yieldBoxShares;
@@ -27,11 +19,13 @@ contract HelloWorld {
     // assigned to the user in yieldBoxShares.
     // Don't deposit twice, you'll lose the first deposit ;)
     function deposit(uint256 amount) public {
-        (, yieldBoxShares[msg.sender]) = yieldBox.depositAsset(assetId, msg.sender, address(this), amount, 0);
+        uint256 shares;
+        (, shares) = yieldBox.depositAsset(assetId, msg.sender, address(this), amount, 0);
+        yieldBoxShares[msg.sender] += shares;
     }
 
     // This will return the current value in amount of the YieldBox shares.
-    // Through flash loans and maybe a strategy, the value can go up over time.
+    // Through a strategy, the value can go up over time, although in this example no strategy is selected.
     function balance() public view returns (uint256 amount) {
         return yieldBox.toAmount(assetId, yieldBoxShares[msg.sender], false);
     }
@@ -39,5 +33,6 @@ contract HelloWorld {
     // Withdraw all shares from the YieldBox and receive the token.
     function withdraw() public {
         yieldBox.withdraw(assetId, address(this), msg.sender, 0, yieldBoxShares[msg.sender]);
+        yieldBoxShares[msg.sender] = 0;
     }
 }

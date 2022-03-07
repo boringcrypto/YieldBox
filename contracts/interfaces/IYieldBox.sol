@@ -23,4 +23,8 @@ interface IYieldBox {
             string memory symbol,
             uint8 decimals
         );
+
+    function owner(uint256 assetId) external view returns (address owner);
+
+    function totalSupply(uint256 assetId) external view returns (uint256 totalSupply);
 }

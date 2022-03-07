@@ -15,6 +15,14 @@ struct Asset {
 contract AssetRegister is ERC1155 {
     using BoringAddress for address;
 
+    event RegistedAsset(
+        TokenType indexed tokenType,
+        address indexed contractAddress,
+        IStrategy strategy,
+        uint256 indexed tokenId,
+        uint256 assetId
+    );
+
     // ids start at 1 so that id 0 means it's not yet registered
     mapping(TokenType => mapping(address => mapping(IStrategy => mapping(uint256 => uint256)))) public ids;
     Asset[] public assets;
@@ -53,6 +61,7 @@ contract AssetRegister is ERC1155 {
 
             // The actual URI isn't emitted here as per EIP1155, because that would make this call super expensive.
             emit URI("", assetId);
+            emit RegistedAsset(tokenType, contractAddress, strategy, tokenId, assetId);
         }
     }
 

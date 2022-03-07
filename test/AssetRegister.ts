@@ -2,7 +2,13 @@ import chai, { assert, expect } from "chai"
 import { solidity } from "ethereum-waffle"
 import { ethers } from "hardhat"
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
-import { AssetRegister, AssetRegister__factory, SushiStakingStrategy, SushiStakingStrategy__factory } from "../typechain-types"
+import {
+    AssetRegister,
+    AssetRegister__factory,
+    BoringFactory__factory,
+    SushiStakingStrategy,
+    SushiStakingStrategy__factory,
+} from "../typechain-types"
 chai.use(solidity)
 
 describe("AssetRegister", () => {
@@ -43,6 +49,20 @@ describe("AssetRegister", () => {
         await expect(register.registerAsset(TokenType.ERC1155, rarible, Zero, 628973)).to.not.emit(register, "URI")
 
         await expect(register.registerAsset(TokenType.ERC20, sushi, sushiStrategy.address, 0)).to.emit(register, "URI").withArgs("", 3)
+
+        expect(await register.ids(TokenType.ERC1155, rarible, Zero, 628973)).equals(2)
+
+        let asset = await register.assets(2)
+        expect(asset.tokenType).equals(TokenType.ERC1155)
+        expect(asset.contractAddress).equals(rarible)
+        expect(asset.strategy).equals(Zero)
+        expect(asset.tokenId).equals(628973)
+
+        asset = await register.assets(3)
+        expect(asset.tokenType).equals(TokenType.ERC20)
+        expect(asset.contractAddress).equals(sushi)
+        expect(asset.strategy).equals(sushiStrategy.address)
+        expect(asset.tokenId).equals(0)
     })
 
     it("cannot register a Native asset", async function () {

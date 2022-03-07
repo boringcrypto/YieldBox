@@ -21,6 +21,7 @@ contract NativeTokenFactory is AssetRegister {
     mapping(uint256 => address) public owner;
     mapping(uint256 => address) public pendingOwner;
 
+    event TokenCreated(address indexed creator, string name, string symbol, uint8 decimals, uint256 tokenId);
     event OwnershipTransferred(uint256 indexed tokenId, address indexed previousOwner, address indexed newOwner);
 
     /// @notice Only allows the `owner` to execute the function.
@@ -79,13 +80,16 @@ contract NativeTokenFactory is AssetRegister {
         string calldata name,
         string calldata symbol,
         uint8 decimals
-    ) public {
-        uint256 tokenId = _registerAsset(TokenType.Native, address(0), NO_STRATEGY, 0);
+    ) public returns (uint256 tokenId) {
+        // To keep each Token unique in the AssetRegister, we use the assetId as the tokenId. So for native assets, the tokenId is always equal to the assetId.
+        tokenId = assets.length;
+        _registerAsset(TokenType.Native, address(0), NO_STRATEGY, tokenId);
         // Initial supply is 0, use owner can mint. For a fixed supply the owner can mint and revoke ownership.
         // The msg.sender is the initial owner, can be changed after.
         nativeTokens[tokenId] = NativeToken(name, symbol, decimals);
         owner[tokenId] = msg.sender;
 
+        emit TokenCreated(msg.sender, name, symbol, decimals, tokenId);
         emit TransferSingle(msg.sender, address(0), address(0), tokenId, 0);
         emit OwnershipTransferred(tokenId, address(0), msg.sender);
     }
