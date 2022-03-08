@@ -19,6 +19,12 @@ interface ISushiBar is IERC20 {
 contract SushiStakingStrategy is IStrategy {
     using BoringERC20 for IERC20;
 
+    IYieldBox public immutable yieldBox;
+
+    constructor(IYieldBox yieldBox_) {
+        yieldBox = yieldBox_;
+    }
+
     string public constant override name = "SushiStaking";
     string public constant override description = "Stakes SUSHI into the SushiBar for xSushi";
 
@@ -69,6 +75,7 @@ contract SushiStakingStrategy is IStrategy {
     /// for small deposits.
     /// Only accept this call from the YieldBox
     function deposited(uint256 amount) external override {
+        require(msg.sender == address(yieldBox), "Not yieldBox");
         // Update cached balance with the new added amount
         _balance += amount;
         // Get the size of the reserve in % (1e18 based)
@@ -84,7 +91,8 @@ contract SushiStakingStrategy is IStrategy {
     /// When a strategy keeps a little reserve for cheap withdrawals and the requested withdrawal goes over this amount,
     /// the strategy should divest enough from the strategy to complete the withdrawal and rebalance the reserve.
     /// Only accept this call from the YieldBox
-    function withdraw(uint256 amount, address to) external override {
+    function withdraw(address to, uint256 amount) external override {
+        require(msg.sender == address(yieldBox), "Not yieldBox");
         _balance = _balance > amount ? _balance - amount : 0;
 
         uint256 reserve = sushi.balanceOf(address(this));
@@ -107,15 +115,5 @@ contract SushiStakingStrategy is IStrategy {
         }
 
         sushi.safeTransfer(to, amount);
-    }
-
-    /// Is called by the YieldBox to ask the strategy to withdraw ETH to the user
-    /// Must be implemented for strategies handling WETH
-    /// If the strategy doesn't handle WETH it will never be called
-    /// When a strategy keeps a little reserve for cheap withdrawals and the requested withdrawal goes over this amount,
-    /// the strategy should divest enough from the strategy to complete the withdrawal and rebalance the reserve.
-    /// Only accept this call from the YieldBox
-    function withdrawETH(uint256 amount, address to) external override {
-        // Not implemented, not applicable
     }
 }

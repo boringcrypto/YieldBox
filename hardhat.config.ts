@@ -56,6 +56,7 @@ const config: HardhatUserConfig = {
             {
                 live: false,
                 blockGasLimit: 30_000_000,
+                allowUnlimitedContractSize: true,
             },
             process.env.ALCHEMY_API_KEY
                 ? {

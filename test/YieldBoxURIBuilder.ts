@@ -51,9 +51,7 @@ describe("YieldBoxURIBuilder", () => {
         expect(uri.startsWith("data:application/json;base64,")).to.be.true
         const base64 = uri.substring(29)
         const json = Buffer.from(base64, "base64").toString("utf-8")
-        console.log(json)
         const data = JSON.parse(json)
-        console.log(data)
         expect(data.properties.tokenType).equals("Native")
         expect(data.name).equals("Boring Token")
         expect(data.symbol).equals("BORING")
@@ -72,9 +70,7 @@ describe("YieldBoxURIBuilder", () => {
         expect(uri.startsWith("data:application/json;base64,")).to.be.true
         const base64 = uri.substring(29)
         const json = Buffer.from(base64, "base64").toString("utf-8")
-        console.log(json)
         const data = JSON.parse(json)
-        console.log(data)
         expect(data.properties.tokenType).equals("Native")
         expect(data.name).equals("Boring Token")
         expect(data.symbol).equals("BORING")
@@ -91,9 +87,7 @@ describe("YieldBoxURIBuilder", () => {
         expect(uri.startsWith("data:application/json;base64,")).to.be.true
         const base64 = uri.substring(29)
         const json = Buffer.from(base64, "base64").toString("utf-8")
-        console.log(json)
         const data = JSON.parse(json)
-        console.log(data)
         expect(data.properties.tokenType).equals("ERC20")
         expect(data.name).equals("SushiToken")
         expect(data.symbol).equals("SUSHI")
@@ -109,9 +103,7 @@ describe("YieldBoxURIBuilder", () => {
         expect(uri.startsWith("data:application/json;base64,")).to.be.true
         const base64 = uri.substring(29)
         const json = Buffer.from(base64, "base64").toString("utf-8")
-        console.log(json)
         const data = JSON.parse(json)
-        console.log(data)
         expect(data.properties.tokenType).equals("ERC1155")
         expect(data.name).equals("ERC1155:0xd07dc4262bcdbf85190c01c996b4c06a461d2430/50")
         expect(data.symbol).equals("ERC1155")

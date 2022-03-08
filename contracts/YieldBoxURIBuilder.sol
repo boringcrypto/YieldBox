@@ -5,6 +5,8 @@ import "@boringcrypto/boring-solidity/contracts/libraries/Base64.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "./interfaces/IYieldBox.sol";
 
+// solhint-disable quotes
+
 contract YieldBoxURIBuilder {
     using BoringERC20 for IERC20;
     using Strings for uint256;

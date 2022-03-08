@@ -2,9 +2,12 @@
 pragma solidity 0.8.9;
 pragma experimental ABIEncoderV2;
 
+import "../enums/YieldBoxTokenType.sol";
 import "./IStrategy.sol";
 
 interface IYieldBox {
+    function wrappedNative() external view returns (address wrappedNative);
+
     function assets(uint256 assetId)
         external
         view

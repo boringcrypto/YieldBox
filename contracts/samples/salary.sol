@@ -28,18 +28,6 @@ contract Salary is BoringBatchable {
         yieldBox = _yieldBox;
     }
 
-    // Included to be able to approve YieldBox and create in the same transaction (using batch)
-    function setYieldBoxApproval(
-        address user,
-        address operator,
-        bool approved,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) public {
-        yieldBox.setApprovalForAllWithPermit(user, operator, approved, v, r, s);
-    }
-
     ///     now                      cliffTimestamp
     ///      |                             |     endTimestamp
     ///      V                             V          |
@@ -76,9 +64,6 @@ contract Salary is BoringBatchable {
     /// The funder of each salary, separated out for gas optimization
     address[] public funder;
 
-    uint8 private constant MODE_YIELDBOX = 0; // Use YieldBox balance
-    uint8 private constant MODE_ERC20 = 2; // Use ERC20 tokens in the users wallet (transferFrom with approval)
-
     /// Create a salary
     function create(
         address recipient,
@@ -86,7 +71,6 @@ contract Salary is BoringBatchable {
         uint32 cliffTimestamp,
         uint32 endTimestamp,
         uint32 cliffPercent,
-        uint8 mode,
         uint128 amount
     ) public returns (uint256 salaryId, uint256 shares) {
         // Check that the end if after or equal to the cliff
@@ -95,16 +79,9 @@ contract Salary is BoringBatchable {
         // You cannot have a cliff greater than 100%, important check, without the contract will lose funds
         require(cliffPercent <= 1e18, "Salary: cliff too large");
 
-        if (mode == MODE_YIELDBOX) {
-            // Fund this salary using the funder's YieldBox balance. Convert the amoutn to shares, then transfer the shares
-            shares = yieldBox.toShare(assetId, amount, false);
-            yieldBox.transfer(msg.sender, address(this), assetId, shares);
-        } else {
-            // Fund this salary with ERC20 tokens
-            // This is a potential reentrancy target, funds in this contract could be higher than the total of salaries during this call
-            // Since this contract doesn't have a skim function, this is ok
-            (, shares) = yieldBox.depositAsset(assetId, msg.sender, address(this), amount, 0);
-        }
+        // Fund this salary using the funder's YieldBox balance. Convert the amount to shares, then transfer the shares
+        shares = yieldBox.toShare(assetId, amount, false);
+        yieldBox.transfer(msg.sender, address(this), assetId, shares);
 
         salaryId = salaries.length;
         UserSalary memory salary;
@@ -159,22 +136,14 @@ contract Salary is BoringBatchable {
     }
 
     // Withdraw the maximum amount possible for a salaryId
-    function withdraw(
-        uint256 salaryId,
-        address to,
-        bool toYieldBox
-    ) public {
+    function withdraw(uint256 salaryId, address to) public {
         UserSalary memory salary = salaries[salaryId];
         // Only pay out to the recipient
         require(salary.recipient == msg.sender, "Salary: not recipient");
 
         uint256 pendingShares = _available(salary);
         salaries[salaryId].withdrawnShares = salary.withdrawnShares + pendingShares;
-        if (toYieldBox) {
-            yieldBox.transfer(address(this), to, salary.assetId, pendingShares);
-        } else {
-            yieldBox.withdraw(salary.assetId, address(this), to, 0, pendingShares);
-        }
+        yieldBox.transfer(address(this), to, salary.assetId, pendingShares);
         emit LogWithdraw(salaryId, to, pendingShares);
     }
 
@@ -185,17 +154,9 @@ contract Salary is BoringBatchable {
     }
 
     // Cancel a salary, can only be done by the funder
-    function cancel(
-        uint256 salaryId,
-        address to,
-        bool toYieldBox
-    ) public onlyFunder(salaryId) {
+    function cancel(uint256 salaryId, address to) public onlyFunder(salaryId) {
         uint256 sharesLeft = salaries[salaryId].shares - salaries[salaryId].withdrawnShares;
-        if (toYieldBox) {
-            yieldBox.transfer(address(this), to, salaries[salaryId].assetId, sharesLeft);
-        } else {
-            yieldBox.withdraw(salaries[salaryId].assetId, address(this), to, 0, sharesLeft);
-        }
+        yieldBox.transfer(address(this), to, salaries[salaryId].assetId, sharesLeft);
         emit LogCancel(salaryId, to, sharesLeft);
     }
 }

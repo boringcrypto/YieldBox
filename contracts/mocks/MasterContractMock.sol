@@ -16,6 +16,10 @@ contract MasterContractMock is IMasterContract {
         yieldBox.depositAsset(id, msg.sender, address(this), 0, amount);
     }
 
+    function setApproval() public {
+        yieldBox.setApprovalForAll(msg.sender, true);
+    }
+
     function init(bytes calldata) external payable override {
         return;
     }

@@ -15,7 +15,7 @@ struct Asset {
 contract AssetRegister is ERC1155 {
     using BoringAddress for address;
 
-    event RegistedAsset(
+    event AssetRegistered(
         TokenType indexed tokenType,
         address indexed contractAddress,
         IStrategy strategy,
@@ -61,7 +61,7 @@ contract AssetRegister is ERC1155 {
 
             // The actual URI isn't emitted here as per EIP1155, because that would make this call super expensive.
             emit URI("", assetId);
-            emit RegistedAsset(tokenType, contractAddress, strategy, tokenId, assetId);
+            emit AssetRegistered(tokenType, contractAddress, strategy, tokenId, assetId);
         }
     }
 

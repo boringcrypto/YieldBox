@@ -3,6 +3,7 @@ pragma solidity 0.8.9;
 pragma experimental ABIEncoderV2;
 
 import "../enums/YieldBoxTokenType.sol";
+import "./IYieldBox.sol";
 
 interface IStrategy {
     /// Each strategy only works with a single asset. This should help make implementations simpler and more readable.
@@ -14,6 +15,9 @@ interface IStrategy {
     /// #########################
     /// ### Basic Information ###
     /// #########################
+
+    /// Returns the address of the yieldBox that this strategy is for
+    function yieldBox() external view returns (IYieldBox yieldBox_);
 
     /// Returns a name for this strategy
     function name() external view returns (string memory name_);
@@ -61,22 +65,17 @@ interface IStrategy {
     /// When a large enough deposit is made, this should trigger the strategy to invest into the actual
     /// strategy. This function should normally NOT be used to invest on each call as that would be costly
     /// for small deposits.
+    /// If the strategy handles native tokens (ETH) it will receive it directly (not wrapped). It will be
+    /// up to the strategy to wrap it if needed.
     /// Only accept this call from the YieldBox
     function deposited(uint256 amount) external;
 
     /// Is called by the YieldBox to ask the strategy to withdraw to the user
     /// When a strategy keeps a little reserve for cheap withdrawals and the requested withdrawal goes over this amount,
     /// the strategy should divest enough from the strategy to complete the withdrawal and rebalance the reserve.
+    /// If the strategy handles native tokens (ETH) it should send this, not a wrapped version.
     /// Only accept this call from the YieldBox
-    function withdraw(uint256 amount, address to) external;
-
-    /// Is called by the YieldBox to ask the strategy to withdraw ETH to the user
-    /// Must be implemented for strategies handling WETH
-    /// If the strategy doesn't handle WETH it will never be called
-    /// When a strategy keeps a little reserve for cheap withdrawals and the requested withdrawal goes over this amount,
-    /// the strategy should divest enough from the strategy to complete the withdrawal and rebalance the reserve.
-    /// Only accept this call from the YieldBox
-    function withdrawETH(uint256 amount, address to) external;
+    function withdraw(address to, uint256 amount) external;
 }
 
 IStrategy constant NO_STRATEGY = IStrategy(address(0));

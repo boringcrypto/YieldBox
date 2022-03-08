@@ -35,7 +35,7 @@ describe("NativeTokenFactory", () => {
         await expect(factory.createToken("Test Token", "TEST", 12))
             .to.emit(factory, "URI")
             .withArgs("", 2)
-            .to.emit(factory, "RegistedAsset")
+            .to.emit(factory, "AssetRegistered")
             .withArgs(TokenType.Native, Zero, Zero, 2, 2)
             .to.emit(factory, "TokenCreated")
             .withArgs(Deployer, "Test Token", "TEST", 12, 2)
