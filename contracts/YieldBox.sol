@@ -31,7 +31,6 @@ import "@boringcrypto/boring-solidity/contracts/Domain.sol";
 import "./ERC1155TokenReceiver.sol";
 import "./ERC1155.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringBatchable.sol";
-import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "./AssetRegister.sol";
 import "./NativeTokenFactory.sol";
@@ -45,7 +44,7 @@ import "./YieldBoxURIBuilder.sol";
 /// @notice The YieldBox is a vault for tokens. The stored tokens can assigned to strategies.
 /// Yield from this will go to the token depositors.
 /// Any funds transfered directly onto the YieldBox will be lost, use the deposit function instead.
-contract YieldBox is BoringBatchable, BoringFactory, NativeTokenFactory, ERC1155TokenReceiver {
+contract YieldBox is BoringBatchable, NativeTokenFactory, ERC1155TokenReceiver {
     using BoringAddress for address;
     using BoringERC20 for IERC20;
     using BoringERC20 for IWrappedNative;
@@ -68,22 +67,6 @@ contract YieldBox is BoringBatchable, BoringFactory, NativeTokenFactory, ERC1155
         wrappedNative = wrappedNative_;
         uriBuilder_.setYieldBox();
         uriBuilder = uriBuilder_;
-    }
-
-    // ***************** //
-    // *** MODIFIERS *** //
-    // ***************** //
-
-    /// Modifier to check if the msg.sender is allowed to use funds belonging to the 'from' address.
-    /// If 'from' is msg.sender, it's allowed.
-    /// If 'msg.sender' is an address (an operator) that is approved by 'from', it's allowed.
-    /// If 'msg.sender' is a clone of a masterContract that is approved by 'from', it's allowed.
-    modifier allowed(address from) {
-        if (from != msg.sender && !isApprovedForAll[from][msg.sender]) {
-            address masterContract = masterContractOf[msg.sender];
-            require(masterContract != address(0) && isApprovedForAll[from][masterContract], "YieldBox: Not approved");
-        }
-        _;
     }
 
     // ************************** //

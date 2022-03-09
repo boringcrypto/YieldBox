@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.9;
 import "./AssetRegister.sol";
+import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 
 struct NativeToken {
     string name;
@@ -16,13 +17,29 @@ struct NativeToken {
 /// - simplified approval
 /// - no hidden features, all these tokens behave the same
 /// TODO: MintBatch? BurnBatch?
-contract NativeTokenFactory is AssetRegister {
+contract NativeTokenFactory is AssetRegister, BoringFactory {
     mapping(uint256 => NativeToken) public nativeTokens;
     mapping(uint256 => address) public owner;
     mapping(uint256 => address) public pendingOwner;
 
     event TokenCreated(address indexed creator, string name, string symbol, uint8 decimals, uint256 tokenId);
     event OwnershipTransferred(uint256 indexed tokenId, address indexed previousOwner, address indexed newOwner);
+
+    // ***************** //
+    // *** MODIFIERS *** //
+    // ***************** //
+
+    /// Modifier to check if the msg.sender is allowed to use funds belonging to the 'from' address.
+    /// If 'from' is msg.sender, it's allowed.
+    /// If 'msg.sender' is an address (an operator) that is approved by 'from', it's allowed.
+    /// If 'msg.sender' is a clone of a masterContract that is approved by 'from', it's allowed.
+    modifier allowed(address from) {
+        if (from != msg.sender && !isApprovedForAll[from][msg.sender]) {
+            address masterContract = masterContractOf[msg.sender];
+            require(masterContract != address(0) && isApprovedForAll[from][masterContract], "YieldBox: Not approved");
+        }
+        _;
+    }
 
     /// @notice Only allows the `owner` to execute the function.
     /// @param tokenId The `tokenId` that the sender has to be owner of.
@@ -109,7 +126,11 @@ contract NativeTokenFactory is AssetRegister {
     /// @notice Burns tokens. Only the holder of tokens can burn them.
     /// @param tokenId The token to be burned.
     /// @param amount The amount of tokens to burn.
-    function burn(uint256 tokenId, uint256 amount) public {
+    function burn(
+        uint256 tokenId,
+        address from,
+        uint256 amount
+    ) public allowed(from) {
         require(assets[tokenId].tokenType == TokenType.Native, "NTF: Not native");
         _burn(msg.sender, tokenId, amount);
     }

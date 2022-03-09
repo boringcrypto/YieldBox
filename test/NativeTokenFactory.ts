@@ -75,15 +75,15 @@ describe("NativeTokenFactory", () => {
     describe("Burn", function () {
         it("Prevents burning without tokens", async function () {
             await factory.mint(1, Alice, 500)
-            await expect(factory.burn(1, 100)).to.be.revertedWith("panic code 0x11")
+            await expect(factory.burn(1, Deployer, 100)).to.be.revertedWith("panic code 0x11")
         })
 
         it("Can burn", async function () {
             await factory.mint(1, Deployer, 500)
             await factory.mint(1, Alice, 250)
 
-            await expect(factory.burn(1, 500)).to.emit(factory, "TransferSingle").withArgs(Deployer, Deployer, Zero, 1, 500)
-            await expect(factory.connect(alice).burn(1, 50)).to.emit(factory, "TransferSingle").withArgs(Alice, Alice, Zero, 1, 50)
+            await expect(factory.burn(1, Deployer, 500)).to.emit(factory, "TransferSingle").withArgs(Deployer, Deployer, Zero, 1, 500)
+            await expect(factory.connect(alice).burn(1, Alice, 50)).to.emit(factory, "TransferSingle").withArgs(Alice, Alice, Zero, 1, 50)
 
             expect(await factory.balanceOf(Deployer, 1)).to.equal(0)
             expect(await factory.balanceOf(Alice, 1)).to.equal(200)
