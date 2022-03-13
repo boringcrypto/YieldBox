@@ -5,7 +5,7 @@ pragma experimental ABIEncoderV2;
 import "@boringcrypto/boring-solidity/contracts/interfaces/IERC20.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "../enums/YieldBoxTokenType.sol";
-import "../interfaces/IStrategy.sol";
+import "./BaseStrategy.sol";
 
 // solhint-disable const-name-snakecase
 // solhint-disable no-empty-blocks
@@ -16,21 +16,13 @@ interface ISushiBar is IERC20 {
     function leave(uint256 share) external;
 }
 
-contract SushiStakingStrategy is IStrategy {
+contract SushiStakingStrategy is BaseERC20Strategy {
     using BoringERC20 for IERC20;
 
-    IYieldBox public immutable yieldBox;
+    constructor(IYieldBox _yieldBox, address _contractAddress) BaseERC20Strategy(_yieldBox, _contractAddress) {}
 
-    constructor(IYieldBox yieldBox_) {
-        yieldBox = yieldBox_;
-    }
-
-    string public constant override name = "SushiStaking";
+    string public constant override name = "xSUSHI";
     string public constant override description = "Stakes SUSHI into the SushiBar for xSushi";
-
-    TokenType public constant override tokenType = TokenType.ERC20;
-    address public constant override contractAddress = 0x6B3595068778DD592e39A122f4f5a5cF09C90fE2;
-    uint256 public constant override tokenId = 0;
 
     IERC20 private constant sushi = IERC20(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2);
     ISushiBar private constant sushiBar = ISushiBar(0x8798249c2E607446EfB7Ad49eC89dD1865Ff4272);
@@ -74,7 +66,7 @@ contract SushiStakingStrategy is IStrategy {
     /// strategy. This function should normally NOT be used to invest on each call as that would be costly
     /// for small deposits.
     /// Only accept this call from the YieldBox
-    function deposited(uint256 amount) external override {
+    function _deposited(uint256 amount) internal override {
         require(msg.sender == address(yieldBox), "Not yieldBox");
         // Update cached balance with the new added amount
         _balance += amount;
@@ -91,7 +83,7 @@ contract SushiStakingStrategy is IStrategy {
     /// When a strategy keeps a little reserve for cheap withdrawals and the requested withdrawal goes over this amount,
     /// the strategy should divest enough from the strategy to complete the withdrawal and rebalance the reserve.
     /// Only accept this call from the YieldBox
-    function withdraw(address to, uint256 amount) external override {
+    function _withdraw(address to, uint256 amount) internal override {
         require(msg.sender == address(yieldBox), "Not yieldBox");
         _balance = _balance > amount ? _balance - amount : 0;
 

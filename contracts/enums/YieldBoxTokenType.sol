@@ -10,5 +10,6 @@ pragma solidity 0.8.9;
 enum TokenType {
     Native,
     ERC20,
-    ERC1155
+    ERC1155,
+    None
 }

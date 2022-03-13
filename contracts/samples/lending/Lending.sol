@@ -36,6 +36,7 @@ struct Market {
     uint256 totalAssetShares;
     // totalAssetFractions and userAssetFraction are stored as the ERC1155 totalSupply and balanceOf in yieldBox
 
+    // Borrow
     // elastic = Total token amount to be repayed by borrowers
     // base = Total parts of the debt held by borrowers
     Rebase totalBorrow;
@@ -62,6 +63,7 @@ contract LendingPair is IMasterContract {
     event LogRemoveAsset(address indexed from, address indexed to, uint256 share, uint256 fraction);
     event LogBorrow(address indexed from, address indexed to, uint256 amount, uint256 part);
     event LogRepay(address indexed from, address indexed to, uint256 amount, uint256 part);
+    event LogLiquidate(uint256 indexed marketId, address indexed user, uint256 borrowPart, address to, ISwapper swapper);
 
     // Immutables (for MasterContract and all clones)
     YieldBox public immutable yieldBox;
@@ -107,7 +109,12 @@ contract LendingPair is IMasterContract {
         IOracle oracle_,
         bytes calldata oracleData_
     ) public {
-        uint256 marketId = yieldBox.createToken("Lending", "LEND", 18);
+        uint256 marketId = yieldBox.createToken(
+            string(abi.encodePacked(yieldBox.name(collateral_), "/", yieldBox.name(asset_), "-", oracle_.name(oracleData_))),
+            string(abi.encodePacked(yieldBox.symbol(collateral_), "/", yieldBox.symbol(asset_), "-", oracle_.symbol(oracleData_))),
+            18
+        );
+
         Market storage market = markets[marketId];
         (market.collateral, market.asset, market.oracle, market.oracleData) = (collateral_, asset_, oracle_, oracleData_);
         market.interestPerSecond = uint64(STARTING_INTEREST_PER_SECOND); // 1% APR, with 1e18 being 100%
@@ -380,14 +387,14 @@ contract LendingPair is IMasterContract {
     }
 
     /// @notice Handles the liquidation of users' balances, once the users' amount of collateral is too low.
-    /// @param users An array of user addresses.
-    /// @param maxBorrowParts A one-to-one mapping to `users`, contains maximum (partial) borrow amounts (to liquidate) of the respective user.
-    /// @param to Address of the receiver in open liquidations if `swapper` is zero.
-    /// @param swapper Contract address of the `ISwapper` implementation. Swappers are restricted for closed liquidations. See `setSwapper`.
+    /// @param user The user to liquidate.
+    /// @param maxBorrowPart Maximum (partial) borrow amounts to liquidate.
+    /// @param to Address of the receiver if `swapper` is zero.
+    /// @param swapper Contract address of the `ISwapper` implementation.
     function liquidate(
         uint256 marketId,
-        address[] calldata users,
-        uint256[] calldata maxBorrowParts,
+        address user,
+        uint256 maxBorrowPart,
         address to,
         ISwapper swapper
     ) public {
@@ -396,53 +403,37 @@ contract LendingPair is IMasterContract {
         // Oracle can fail but we still need to allow liquidations
         (, uint256 _exchangeRate) = updateExchangeRate(marketId);
         accrue(marketId);
+        require(!_isSolvent(marketId, user, _exchangeRate), "Lending: user solvent");
 
-        uint256 allCollateralShare;
-        uint256 allBorrowAmount;
-        uint256 allBorrowPart;
-        //Rebase memory _totalBorrow = totalBorrow;
-        //Rebase memory bentoBoxTotals = yieldBox.totals(collateral);
-        for (uint256 i = 0; i < users.length; i++) {
-            address user = users[i];
-            if (!_isSolvent(marketId, user, _exchangeRate)) {
-                uint256 borrowPart;
-                {
-                    uint256 availableBorrowPart = market.userBorrowPart[user];
-                    borrowPart = maxBorrowParts[i] > availableBorrowPart ? availableBorrowPart : maxBorrowParts[i];
-                    market.userBorrowPart[user] = availableBorrowPart - borrowPart;
-                }
-                uint256 borrowAmount = market.totalBorrow.toElastic(borrowPart, false);
-                uint256 collateralShare = yieldBox.toShare(
-                    market.collateral,
-                    ((borrowAmount * LIQUIDATION_MULTIPLIER * _exchangeRate) / LIQUIDATION_MULTIPLIER_PRECISION) * EXCHANGE_RATE_PRECISION,
-                    false
-                );
+        uint256 availableBorrowPart = market.userBorrowPart[user];
+        uint256 borrowPart = maxBorrowPart > availableBorrowPart ? availableBorrowPart : maxBorrowPart;
+        market.userBorrowPart[user] = availableBorrowPart - borrowPart;
+        uint256 borrowAmount = market.totalBorrow.toElastic(borrowPart, false);
+        uint256 collateralShare = yieldBox.toShare(
+            market.collateral,
+            ((borrowAmount * LIQUIDATION_MULTIPLIER * _exchangeRate) / LIQUIDATION_MULTIPLIER_PRECISION) * EXCHANGE_RATE_PRECISION,
+            false
+        );
 
-                market.userCollateralShare[user] -= collateralShare;
-                emit LogRemoveCollateral(user, swapper == ISwapper(address(0)) ? to : address(swapper), collateralShare);
-                emit LogRepay(swapper == ISwapper(address(0)) ? msg.sender : address(swapper), user, borrowAmount, borrowPart);
+        market.userCollateralShare[user] -= collateralShare;
+        emit LogRemoveCollateral(user, swapper == ISwapper(address(0)) ? to : address(swapper), collateralShare);
+        emit LogRepay(swapper == ISwapper(address(0)) ? msg.sender : address(swapper), user, borrowAmount, borrowPart);
 
-                // Keep totals
-                allCollateralShare += collateralShare;
-                allBorrowAmount += borrowAmount;
-                allBorrowPart += borrowPart;
-            }
-        }
-        require(allBorrowAmount != 0, "LendingPair: all are solvent");
-        market.totalBorrow.elastic -= uint128(allBorrowAmount);
-        market.totalBorrow.base -= uint128(allBorrowPart);
-        market.totalCollateralShare -= allCollateralShare;
+        market.totalBorrow.elastic -= uint128(borrowAmount);
+        market.totalBorrow.base -= uint128(borrowPart);
+        market.totalCollateralShare -= collateralShare;
 
-        uint256 allBorrowShare = yieldBox.toShare(market.asset, allBorrowAmount, true);
+        uint256 borrowShare = yieldBox.toShare(market.asset, borrowAmount, true);
 
-        // Swap using a swapper freely chosen by the caller
         // Flash liquidation: get proceeds first and provide the borrow after
-        yieldBox.transfer(address(this), swapper == ISwapper(address(0)) ? to : address(swapper), market.collateral, allCollateralShare);
+        yieldBox.transfer(address(this), swapper == ISwapper(address(0)) ? to : address(swapper), market.collateral, collateralShare);
         if (swapper != ISwapper(address(0))) {
-            swapper.swap(market.collateral, market.asset, msg.sender, allBorrowShare, allCollateralShare);
+            swapper.swap(market.collateral, market.asset, msg.sender, borrowShare, collateralShare);
         }
 
-        yieldBox.transfer(msg.sender, address(this), market.asset, allBorrowShare);
-        market.totalAssetShares += allBorrowShare;
+        yieldBox.transfer(msg.sender, address(this), market.asset, borrowShare);
+        market.totalAssetShares += borrowShare;
+
+        emit LogLiquidate(marketId, user, borrowPart, to, swapper);
     }
 }

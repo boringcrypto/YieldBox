@@ -288,6 +288,7 @@ contract YieldBox is BoringBatchable, NativeTokenFactory, ERC1155TokenReceiver {
         // Checks
         require(operator != address(0), "YieldBox: operator not set"); // Important for security
         require(masterContractOf[msg.sender] == address(0), "YieldBox: user is clone");
+        require(operator != address(this), "YieldBox: can't approve yieldBox");
 
         // Effects
         isApprovedForAll[msg.sender][operator] = approved;
@@ -295,10 +296,22 @@ contract YieldBox is BoringBatchable, NativeTokenFactory, ERC1155TokenReceiver {
         emit ApprovalForAll(msg.sender, operator, approved);
     }
 
+    // This functionality has been split off into a separate contract. This is only a view function, so gas usage isn't a huge issue.
+    // This keeps the YieldBox contract smaller, so it can be optimized more.
     function uri(uint256 assetId) external view override returns (string memory) {
-        // This functionality has been split off into a separate contract. This is only a view function, so gas usage isn't a huge issue.
-        // This keeps the YieldBox contract smaller, so it can be optimized more.
         return uriBuilder.uri(assetId);
+    }
+
+    function name(uint256 assetId) external view returns (string memory) {
+        return uriBuilder.name(assetId);
+    }
+
+    function symbol(uint256 assetId) external view returns (string memory) {
+        return uriBuilder.symbol(assetId);
+    }
+
+    function decimals(uint256 assetId) external view returns (uint8) {
+        return uriBuilder.decimals(assetId);
     }
 
     // Included to support unwrapping wrapped native tokens such as WETH

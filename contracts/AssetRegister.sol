@@ -28,7 +28,11 @@ contract AssetRegister is ERC1155 {
     Asset[] public assets;
 
     constructor() {
-        assets.push(Asset(TokenType.ERC20, address(0), NO_STRATEGY, 0));
+        assets.push(Asset(TokenType.None, address(0), NO_STRATEGY, 0));
+    }
+
+    function assetCount() public view returns (uint256) {
+        return assets.length;
     }
 
     function _registerAsset(

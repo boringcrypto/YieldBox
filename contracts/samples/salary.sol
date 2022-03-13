@@ -64,6 +64,10 @@ contract Salary is BoringBatchable {
     /// The funder of each salary, separated out for gas optimization
     address[] public funder;
 
+    function salaryCount() public view returns (uint256) {
+        return salaries.length;
+    }
+
     /// Create a salary
     function create(
         address recipient,
@@ -135,16 +139,18 @@ contract Salary is BoringBatchable {
         shares = _available(salaries[salaryId]);
     }
 
+    function _withdraw(uint256 salaryId, address to) internal {
+        uint256 pendingShares = _available(salaries[salaryId]);
+        salaries[salaryId].withdrawnShares += pendingShares;
+        yieldBox.transfer(address(this), to, salaries[salaryId].assetId, pendingShares);
+        emit LogWithdraw(salaryId, to, pendingShares);
+    }
+
     // Withdraw the maximum amount possible for a salaryId
     function withdraw(uint256 salaryId, address to) public {
-        UserSalary memory salary = salaries[salaryId];
         // Only pay out to the recipient
-        require(salary.recipient == msg.sender, "Salary: not recipient");
-
-        uint256 pendingShares = _available(salary);
-        salaries[salaryId].withdrawnShares = salary.withdrawnShares + pendingShares;
-        yieldBox.transfer(address(this), to, salary.assetId, pendingShares);
-        emit LogWithdraw(salaryId, to, pendingShares);
+        require(salaries[salaryId].recipient == msg.sender, "Salary: not recipient");
+        _withdraw(salaryId, to);
     }
 
     // Modifier for functions only allowed by the funder
@@ -155,6 +161,9 @@ contract Salary is BoringBatchable {
 
     // Cancel a salary, can only be done by the funder
     function cancel(uint256 salaryId, address to) public onlyFunder(salaryId) {
+        // Pay the recipient all accrued funds
+        _withdraw(salaryId, salaries[salaryId].recipient);
+        // Return the rest to the funder
         uint256 sharesLeft = salaries[salaryId].shares - salaries[salaryId].withdrawnShares;
         yieldBox.transfer(address(this), to, salaries[salaryId].assetId, sharesLeft);
         emit LogCancel(salaryId, to, sharesLeft);
