@@ -1,4 +1,6 @@
 import "hardhat-deploy"
+import "@nomiclabs/hardhat-ethers"
+import { ethers } from "hardhat"
 import { DeployFunction } from "hardhat-deploy/types"
 import { HardhatRuntimeEnvironment } from "hardhat/types"
 
@@ -8,11 +10,14 @@ const deployFunction: DeployFunction = async function ({ deployments, getChainId
     const chainId = parseInt(await getChainId())
     const { deployer } = await getNamedAccounts()
 
+    await ethers.provider.send("evm_setNextBlockTimestamp", [Date.now() / 1000])
+
     const uriBuilder = await deploy("YieldBoxURIBuilder", {
         from: deployer,
         args: [],
         log: true,
         deterministicDeployment: false,
+        skipIfAlreadyDeployed: false,
     })
 
     await deploy("YieldBox", {
@@ -21,8 +26,6 @@ const deployFunction: DeployFunction = async function ({ deployments, getChainId
         log: true,
         deterministicDeployment: false,
     })
-
-    deployments.run
 }
 
 deployFunction.dependencies = []

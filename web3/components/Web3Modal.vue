@@ -2,7 +2,7 @@
 import { inject, ref, computed, watch } from "vue"
 import { ethers, BigNumber } from "ethers"
 import { connectors } from "../classes/NetworkConnectors"
-import Data from "../data"
+import Data from "../data-web3"
 import { IERC20__factory } from "../classes/types"
 import { Token } from "../classes/TokenManager"
 

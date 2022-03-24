@@ -2,7 +2,7 @@
 import { inject, ref } from "vue"
 import { ethers, BigNumber } from "ethers"
 import { connectors } from "../classes/NetworkConnectors"
-import Data from "../data"
+import Data from "../data-web3"
 import { IERC20__factory } from "../classes/types"
 import { Token } from "../classes/TokenManager"
 
@@ -21,7 +21,6 @@ const load = async () => {
     if (props.contract && props.spender && app.web3.address) {
         const erc20 = await IERC20__factory.connect(props.contract, connector.provider)
         allowance.value = await erc20.allowance(app.web3.address, props.spender)
-        console.log("Allowance:", allowance.toString())
     }
     loaded.value = true
 }

@@ -1,6 +1,7 @@
-import { createApp, reactive } from "vue"
+import { createApp, reactive, ref, Ref } from "vue"
 import { createRouter, createWebHashHistory } from "vue-router"
 import { BigNumber } from "ethers"
+import "bootstrap-icons/font/bootstrap-icons.css"
 import BootstrapVue from "bootstrap-vue-3"
 
 import "bootswatch/dist/litera/bootstrap.min.css"
@@ -8,12 +9,13 @@ import "bootstrap-vue-3/dist/bootstrap-vue-3.css"
 
 import App from "./App.vue"
 import Home from "./pages/Home.vue"
-import Salary from "./pages/Salary.vue"
-import YieldBoxBalances from "./pages/YieldBoxBalances.vue"
+import Block from "./pages/Block.vue"
+import Address from "./pages/Address.vue"
 
-import Data from "./data-web3"
+import Data from "./data-workbench"
 import Decimal from "decimal.js-light"
-import { Token } from "./classes/TokenManager"
+import { Token } from "../web3/classes/TokenManager"
+import { HardhatProvider, hardhat } from "./classes/HardhatProvider"
 
 Decimal.config({ precision: 36 })
 Decimal.config({ toExpNeg: -1000 })
@@ -65,23 +67,44 @@ const BigNumberMin = (...args: BigNumber[]) => args.reduce((m, e) => (e < m ? e 
 declare module "@vue/runtime-core" {
     interface ComponentCustomProperties {
         app: typeof Data
+        hardhat: HardhatProvider
+        now: Ref<number>
     }
 }
 
+function setupNow() {
+    let now: Ref<number> = ref(Date.now())
+    window.setInterval(() => (now.value = Date.now()), 1000)
+    return now
+}
+
 async function main() {
+    Data.setup()
+    hardhat.accounts.forEach((account) => {
+        Data.addNamedAddress({
+            address: account.address,
+            type: "wallet",
+            name: account.name,
+            object: account,
+        })
+    })
+
     const app = createApp(App)
-    await Data.web3.setup()
     window.data = Data
     app.config.globalProperties.app = reactive(Data)
+    app.config.globalProperties.hardhat = hardhat
+    app.config.globalProperties.now = setupNow()
     app.provide("app", app.config.globalProperties.app)
+    app.provide("hardhat", app.config.globalProperties.hardhat)
+    app.provide("now", app.config.globalProperties.now)
 
     app.use(
         createRouter({
             history: createWebHashHistory(),
             routes: [
                 { path: "/", component: Home },
-                { path: "/salary", component: Salary },
-                { path: "/yieldbox/balances/:address", component: YieldBoxBalances },
+                { path: "/block/:number", component: Block },
+                { path: "/address/:address", component: Address },
             ],
         })
     )

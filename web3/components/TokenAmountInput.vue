@@ -2,7 +2,7 @@
 import { inject, ref, computed, watch } from "vue"
 import { ethers, BigNumber } from "ethers"
 import { connectors } from "../classes/NetworkConnectors"
-import Data from "../data"
+import Data from "../data-web3"
 import { IERC20__factory } from "../classes/types"
 import { Token } from "../classes/TokenManager"
 import Decimal from "decimal.js-light"
@@ -40,6 +40,12 @@ watch(
         if (value === null) {
             amount.value = ""
         }
+    }
+)
+watch(
+    () => props.token,
+    () => {
+        emit("update:modelValue", null)
     }
 )
 const setMax = () => {

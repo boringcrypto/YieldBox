@@ -6,7 +6,7 @@ import { connectors } from "./NetworkConnectors"
 import { NetworkConnector } from "./NetworkConnector"
 import Decimal from "decimal.js-light"
 import { YieldBox as YieldBoxContract, YieldBox__factory } from "../../typechain-types"
-import app from "../data"
+import app from "../data-web3"
 import { Token, tokens } from "./TokenManager"
 
 export enum TokenType {

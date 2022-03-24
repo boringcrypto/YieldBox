@@ -65,7 +65,6 @@ contract YieldBox is BoringBatchable, NativeTokenFactory, ERC1155TokenReceiver {
 
     constructor(IWrappedNative wrappedNative_, YieldBoxURIBuilder uriBuilder_) {
         wrappedNative = wrappedNative_;
-        uriBuilder_.setYieldBox();
         uriBuilder = uriBuilder_;
     }
 
@@ -299,25 +298,30 @@ contract YieldBox is BoringBatchable, NativeTokenFactory, ERC1155TokenReceiver {
     // This functionality has been split off into a separate contract. This is only a view function, so gas usage isn't a huge issue.
     // This keeps the YieldBox contract smaller, so it can be optimized more.
     function uri(uint256 assetId) external view override returns (string memory) {
-        return uriBuilder.uri(assetId);
+        return uriBuilder.uri(assets[assetId], nativeTokens[assetId], totalSupply[assetId], owner[assetId]);
     }
 
     function name(uint256 assetId) external view returns (string memory) {
-        return uriBuilder.name(assetId);
+        return uriBuilder.name(assets[assetId], nativeTokens[assetId].name);
     }
 
     function symbol(uint256 assetId) external view returns (string memory) {
-        return uriBuilder.symbol(assetId);
+        return uriBuilder.symbol(assets[assetId], nativeTokens[assetId].symbol);
     }
 
     function decimals(uint256 assetId) external view returns (uint8) {
-        return uriBuilder.decimals(assetId);
+        return uriBuilder.decimals(assets[assetId], nativeTokens[assetId].decimals);
     }
 
     // Included to support unwrapping wrapped native tokens such as WETH
     receive() external payable {}
 
     // Helper functions
+
+    function assetTotals(uint256 assetId) external view returns (uint256 totalShare, uint256 totalAmount) {
+        totalShare = totalSupply[assetId];
+        totalAmount = _tokenBalanceOf(assets[assetId]);
+    }
 
     /// @dev Helper function to represent an `amount` of `token` in shares.
     /// @param assetId The id of the asset.

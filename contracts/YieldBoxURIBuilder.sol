@@ -4,6 +4,7 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/Base64.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringERC20.sol";
 import "./interfaces/IYieldBox.sol";
+import "./NativeTokenFactory.sol";
 
 // solhint-disable quotes
 
@@ -12,13 +13,6 @@ contract YieldBoxURIBuilder {
     using Strings for uint256;
     using Base64 for bytes;
 
-    IYieldBox public yieldBox;
-
-    function setYieldBox() public {
-        require(address(yieldBox) == address(0), "YieldBox already set");
-        yieldBox = IYieldBox(payable(msg.sender));
-    }
-
     struct AssetDetails {
         string tokenType;
         string name;
@@ -26,103 +20,106 @@ contract YieldBoxURIBuilder {
         uint256 decimals;
     }
 
-    function name(uint256 assetId) external view returns (string memory) {
-        (TokenType tokenType, address contractAddress, IStrategy strategy, uint256 tokenId) = yieldBox.assets(assetId);
-        if (strategy == NO_STRATEGY) {
-            if (tokenType == TokenType.ERC20) {
-                IERC20 token = IERC20(contractAddress);
+    function name(Asset calldata asset, string calldata nativeName) external view returns (string memory) {
+        if (asset.strategy == NO_STRATEGY) {
+            if (asset.tokenType == TokenType.ERC20) {
+                IERC20 token = IERC20(asset.contractAddress);
                 return token.safeName();
-            } else if (tokenType == TokenType.ERC1155) {
-                return string(abi.encodePacked("ERC1155:", uint256(uint160(contractAddress)).toHexString(20), "/", tokenId.toString()));
+            } else if (asset.tokenType == TokenType.ERC1155) {
+                return
+                    string(abi.encodePacked("ERC1155:", uint256(uint160(asset.contractAddress)).toHexString(20), "/", asset.tokenId.toString()));
             } else {
-                (string memory name_, , ) = yieldBox.nativeTokens(assetId);
-                return name_;
+                return nativeName;
             }
         } else {
-            if (tokenType == TokenType.ERC20) {
-                IERC20 token = IERC20(contractAddress);
-                return string(abi.encodePacked(token.safeName(), " (", strategy.name(), ")"));
-            } else if (tokenType == TokenType.ERC1155) {
+            if (asset.tokenType == TokenType.ERC20) {
+                IERC20 token = IERC20(asset.contractAddress);
+                return string(abi.encodePacked(token.safeName(), " (", asset.strategy.name(), ")"));
+            } else if (asset.tokenType == TokenType.ERC1155) {
                 return
                     string(
                         abi.encodePacked(
-                            string(abi.encodePacked("ERC1155:", uint256(uint160(contractAddress)).toHexString(20), "/", tokenId.toString())),
+                            string(
+                                abi.encodePacked(
+                                    "ERC1155:",
+                                    uint256(uint160(asset.contractAddress)).toHexString(20),
+                                    "/",
+                                    asset.tokenId.toString()
+                                )
+                            ),
                             " (",
-                            strategy.name(),
+                            asset.strategy.name(),
                             ")"
                         )
                     );
             } else {
-                (string memory name_, , ) = yieldBox.nativeTokens(assetId);
-                return string(abi.encodePacked(name_, " (", strategy.name(), ")"));
+                return string(abi.encodePacked(nativeName, " (", asset.strategy.name(), ")"));
             }
         }
     }
 
-    function symbol(uint256 assetId) external view returns (string memory) {
-        (TokenType tokenType, address contractAddress, IStrategy strategy, ) = yieldBox.assets(assetId);
-        if (strategy == NO_STRATEGY) {
-            if (tokenType == TokenType.ERC20) {
-                IERC20 token = IERC20(contractAddress);
+    function symbol(Asset calldata asset, string calldata nativeSymbol) external view returns (string memory) {
+        if (asset.strategy == NO_STRATEGY) {
+            if (asset.tokenType == TokenType.ERC20) {
+                IERC20 token = IERC20(asset.contractAddress);
                 return token.safeSymbol();
-            } else if (tokenType == TokenType.ERC1155) {
+            } else if (asset.tokenType == TokenType.ERC1155) {
                 return "ERC1155";
             } else {
-                (, string memory symbol_, ) = yieldBox.nativeTokens(assetId);
-                return symbol_;
+                return nativeSymbol;
             }
         } else {
-            if (tokenType == TokenType.ERC20) {
-                IERC20 token = IERC20(contractAddress);
-                return string(abi.encodePacked(token.safeSymbol(), " (", strategy.name(), ")"));
-            } else if (tokenType == TokenType.ERC1155) {
-                return string(abi.encodePacked("ERC1155", " (", strategy.name(), ")"));
+            if (asset.tokenType == TokenType.ERC20) {
+                IERC20 token = IERC20(asset.contractAddress);
+                return string(abi.encodePacked(token.safeSymbol(), " (", asset.strategy.name(), ")"));
+            } else if (asset.tokenType == TokenType.ERC1155) {
+                return string(abi.encodePacked("ERC1155", " (", asset.strategy.name(), ")"));
             } else {
-                (, string memory symbol_, ) = yieldBox.nativeTokens(assetId);
-                return string(abi.encodePacked(symbol_, " (", strategy.name(), ")"));
+                return string(abi.encodePacked(nativeSymbol, " (", asset.strategy.name(), ")"));
             }
         }
     }
 
-    function decimals(uint256 assetId) external view returns (uint8) {
-        (TokenType tokenType, address contractAddress, , ) = yieldBox.assets(assetId);
-        if (tokenType == TokenType.ERC1155) {
+    function decimals(Asset calldata asset, uint8 nativeDecimals) external view returns (uint8) {
+        if (asset.tokenType == TokenType.ERC1155) {
             return 0;
-        } else if (tokenType == TokenType.ERC20) {
-            IERC20 token = IERC20(contractAddress);
+        } else if (asset.tokenType == TokenType.ERC20) {
+            IERC20 token = IERC20(asset.contractAddress);
             return token.safeDecimals();
         } else {
-            (, , uint8 decimals_) = yieldBox.nativeTokens(assetId);
-            return decimals_;
+            return nativeDecimals;
         }
     }
 
-    function uri(uint256 assetId) external view returns (string memory) {
+    function uri(
+        Asset calldata asset,
+        NativeToken calldata nativeToken,
+        uint256 totalSupply,
+        address owner
+    ) external view returns (string memory) {
         AssetDetails memory details;
-        (TokenType tokenType, address contractAddress, IStrategy strategy, uint256 tokenId) = yieldBox.assets(assetId);
-        if (tokenType == TokenType.ERC1155) {
+        if (asset.tokenType == TokenType.ERC1155) {
             // Contracts can't retrieve URIs, so the details are out of reach
             details.tokenType = "ERC1155";
-            details.name = string(abi.encodePacked("ERC1155:", uint256(uint160(contractAddress)).toHexString(20), "/", tokenId.toString()));
+            details.name = string(
+                abi.encodePacked("ERC1155:", uint256(uint160(asset.contractAddress)).toHexString(20), "/", asset.tokenId.toString())
+            );
             details.symbol = "ERC1155";
-        } else if (tokenType == TokenType.ERC20) {
-            IERC20 token = IERC20(contractAddress);
+        } else if (asset.tokenType == TokenType.ERC20) {
+            IERC20 token = IERC20(asset.contractAddress);
             details = AssetDetails("ERC20", token.safeName(), token.safeSymbol(), token.safeDecimals());
         } else {
             // Native
             details.tokenType = "Native";
-            (details.name, details.symbol, details.decimals) = yieldBox.nativeTokens(assetId);
+            details.name = nativeToken.name;
+            details.symbol = nativeToken.symbol;
+            details.decimals = nativeToken.decimals;
         }
 
         string memory properties = string(
-            tokenType != TokenType.Native
-                ? abi.encodePacked(',"tokenAddress":"', uint256(uint160(contractAddress)).toHexString(20), '"')
-                : abi.encodePacked(
-                    ',"totalSupply":',
-                    yieldBox.totalSupply(assetId).toString(),
-                    ',"fixedSupply":',
-                    yieldBox.owner(assetId) == address(0) ? "true" : "false"
-                )
+            asset.tokenType != TokenType.Native
+                ? abi.encodePacked(',"tokenAddress":"', uint256(uint160(asset.contractAddress)).toHexString(20), '"')
+                : abi.encodePacked(',"totalSupply":', totalSupply.toString(), ',"fixedSupply":', owner == address(0) ? "true" : "false")
         );
 
         return
@@ -136,15 +133,15 @@ contract YieldBoxURIBuilder {
                             '","symbol":"',
                             details.symbol,
                             '"',
-                            tokenType == TokenType.ERC1155 ? "" : ',"decimals":',
-                            tokenType == TokenType.ERC1155 ? "" : details.decimals.toString(),
+                            asset.tokenType == TokenType.ERC1155 ? "" : ',"decimals":',
+                            asset.tokenType == TokenType.ERC1155 ? "" : details.decimals.toString(),
                             ',"properties":{"strategy":"',
-                            uint256(uint160(address(strategy))).toHexString(20),
+                            uint256(uint160(address(asset.strategy))).toHexString(20),
                             '","tokenType":"',
                             details.tokenType,
                             '"',
                             properties,
-                            tokenType == TokenType.ERC1155 ? string(abi.encodePacked(',"tokenId":', tokenId.toString())) : "",
+                            asset.tokenType == TokenType.ERC1155 ? string(abi.encodePacked(',"tokenId":', asset.tokenId.toString())) : "",
                             "}}"
                         )
                         .encode()

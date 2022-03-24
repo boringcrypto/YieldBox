@@ -1,16 +1,9 @@
 <script setup lang="ts">
 import Menu from "./components/Menu.vue"
 import { ref, inject, watch } from "vue"
-import Data from "./data-web3"
+import Data from "./data-workbench"
 
 const app = inject("app") as typeof Data
-const showQueue = ref(false)
-watch(
-    () => app.web3.active.length,
-    (value) => {
-        showQueue.value = value > 0
-    }
-)
 </script>
 
 <template>
@@ -24,9 +17,6 @@ watch(
         </suspense>
     </router-view>
     <footer class="fixed-bottom bg-light text-dark text-center py-2">Unaudited and just for testing. @Boring_crypto.</footer>
-    <b-modal v-model="showQueue" title="Transactions" hideFooter centered>
-        <div v-for="info in app.web3.active">{{ info.description }} - {{ info.status }}</div>
-    </b-modal>
 </template>
 
 <style></style>

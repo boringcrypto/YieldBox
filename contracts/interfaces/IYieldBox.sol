@@ -3,7 +3,6 @@ pragma solidity 0.8.9;
 pragma experimental ABIEncoderV2;
 
 import "../enums/YieldBoxTokenType.sol";
-import "./IStrategy.sol";
 
 interface IYieldBox {
     function wrappedNative() external view returns (address wrappedNative);
@@ -14,7 +13,7 @@ interface IYieldBox {
         returns (
             TokenType tokenType,
             address contractAddress,
-            IStrategy strategy,
+            address strategy,
             uint256 tokenId
         );
 

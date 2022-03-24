@@ -18,11 +18,11 @@ contract Salary is BoringBatchable {
         uint32 cliffTimestamp,
         uint32 endTimestamp,
         uint32 cliffPercent,
-        uint128 totalShares,
+        uint128 totalShare,
         uint256 salaryId
     );
-    event LogWithdraw(uint256 indexed salaryId, address indexed to, uint256 shares);
-    event LogCancel(uint256 indexed salaryId, address indexed to, uint256 shares);
+    event LogWithdraw(uint256 indexed salaryId, address indexed to, uint256 share);
+    event LogCancel(uint256 indexed salaryId, address indexed to, uint256 share);
 
     constructor(YieldBox _yieldBox) {
         yieldBox = _yieldBox;
@@ -37,32 +37,32 @@ contract Salary is BoringBatchable {
     ///      |        |             V      |
     ///      |        |             -----> |
     ///      |        |                      \
-    ///      |   totalShares                   \
+    ///      |   totalShare                   \
     ///      |        |                          \
     ///      |        |                            \
     ///      |        V                              \
     ///      -----------------------------------------
     struct UserSalary {
+        // The funder of the salary, the one who can cancel it
+        address funder;
         // The recipient of the salary
         address recipient;
         // The ERC20 token
         uint256 assetId;
-        // The amount of shares that the recipient has already withdrawn
-        uint256 withdrawnShares;
+        // The amount of share that the recipient has already withdrawn
+        uint256 withdrawnShare;
         // The timestamp of the cliff (also the start of the slope)
         uint32 cliffTimestamp;
         // The timestamp of the end of vesting (the end of the slope)
         uint32 endTimestamp;
-        // The cliff payout in percent of the shares, 1e18 = 100%
+        // The cliff payout in percent of the share
         uint64 cliffPercent;
-        // The total payout in shares
-        uint128 shares;
+        // The total payout in share
+        uint128 share;
     }
 
     /// Array of all salaries managed by the contract
     UserSalary[] public salaries;
-    /// The funder of each salary, separated out for gas optimization
-    address[] public funder;
 
     function salaryCount() public view returns (uint256) {
         return salaries.length;
@@ -76,38 +76,38 @@ contract Salary is BoringBatchable {
         uint32 endTimestamp,
         uint32 cliffPercent,
         uint128 amount
-    ) public returns (uint256 salaryId, uint256 shares) {
+    ) public returns (uint256 salaryId, uint256 share) {
         // Check that the end if after or equal to the cliff
-        // If they are equal, all shares become payable at once, use this for a fixed term lockup
+        // If they are equal, all share become payable at once, use this for a fixed term lockup
         require(cliffTimestamp <= endTimestamp, "Salary: cliff > end");
         // You cannot have a cliff greater than 100%, important check, without the contract will lose funds
         require(cliffPercent <= 1e18, "Salary: cliff too large");
 
-        // Fund this salary using the funder's YieldBox balance. Convert the amount to shares, then transfer the shares
-        shares = yieldBox.toShare(assetId, amount, false);
-        yieldBox.transfer(msg.sender, address(this), assetId, shares);
+        // Fund this salary using the funder's YieldBox balance. Convert the amount to share, then transfer the share
+        share = yieldBox.toShare(assetId, amount, false);
+        yieldBox.transfer(msg.sender, address(this), assetId, share);
 
         salaryId = salaries.length;
         UserSalary memory salary;
+        salary.funder = msg.sender;
         salary.recipient = recipient;
         salary.assetId = assetId;
         salary.cliffTimestamp = cliffTimestamp;
         salary.endTimestamp = endTimestamp;
         salary.cliffPercent = cliffPercent;
-        salary.shares = uint128(shares);
+        salary.share = uint128(share);
         salaries.push(salary);
-        funder.push(msg.sender);
 
-        emit LogCreate(msg.sender, recipient, assetId, cliffTimestamp, endTimestamp, cliffPercent, uint128(shares), salaryId);
+        emit LogCreate(msg.sender, recipient, assetId, cliffTimestamp, endTimestamp, cliffPercent, uint128(share), salaryId);
     }
 
-    function _available(UserSalary memory salary) internal view returns (uint256 shares) {
+    function _available(UserSalary memory salary) internal view returns (uint256 share) {
         if (block.timestamp < salary.cliffTimestamp) {
             // Before the cliff, none is available
-            shares = 0;
+            share = 0;
         } else if (block.timestamp >= salary.endTimestamp) {
             // After the end, all is available
-            shares = salary.shares;
+            share = salary.share;
         } else {
             // In between, cliff is available, rest according to slope
 
@@ -118,32 +118,54 @@ contract Salary is BoringBatchable {
             uint256 payablePercent = salary.cliffPercent;
             if (timeSinceCliff > 0) {
                 // The percentage paid out during the slope
-                uint256 slopePercent = 1e18 - salary.cliffPercent;
+                uint256 slopePercent = 100 - salary.cliffPercent;
                 // The percentage payable on the slope added to the cliff percentage
-                payablePercent = payablePercent + ((slopePercent * timeSinceCliff) / timeSlope);
+                payablePercent += ((slopePercent * timeSinceCliff) / timeSlope);
             }
             // The share payable
-            shares = (salary.shares * payablePercent) / 1e18;
+            share = (salary.share * payablePercent) / 100;
         }
 
-        // Remove any shares already wiythdrawn, if negative, return 0
-        if (shares > salary.withdrawnShares) {
-            shares = shares - salary.withdrawnShares;
-        } else {
-            shares = 0;
-        }
+        // Remove any share already withdrawn
+        share -= salary.withdrawnShare;
     }
 
-    // Get the number of shares currently available for withdrawal by salaryId
-    function available(uint256 salaryId) public view returns (uint256 shares) {
-        shares = _available(salaries[salaryId]);
+    // Get the number of share currently available for withdrawal by salaryId
+    function available(uint256 salaryId) public view returns (uint256 share) {
+        share = _available(salaries[salaryId]);
+    }
+
+    function info(uint256 salaryId)
+        public
+        view
+        returns (
+            address funder,
+            address recipient,
+            uint256 assetId,
+            uint256 withdrawnAmount,
+            uint32 cliffTimestamp,
+            uint32 endTimestamp,
+            uint64 cliffPercent,
+            uint256 amount,
+            uint256 availableAmount
+        )
+    {
+        funder = salaries[salaryId].funder;
+        recipient = salaries[salaryId].recipient;
+        assetId = salaries[salaryId].assetId;
+        cliffTimestamp = salaries[salaryId].cliffTimestamp;
+        endTimestamp = salaries[salaryId].endTimestamp;
+        cliffPercent = salaries[salaryId].cliffPercent;
+        amount = yieldBox.toAmount(salaries[salaryId].assetId, salaries[salaryId].share, false);
+        withdrawnAmount = yieldBox.toAmount(salaries[salaryId].assetId, salaries[salaryId].withdrawnShare, false);
+        availableAmount = yieldBox.toAmount(salaries[salaryId].assetId, _available(salaries[salaryId]), false);
     }
 
     function _withdraw(uint256 salaryId, address to) internal {
-        uint256 pendingShares = _available(salaries[salaryId]);
-        salaries[salaryId].withdrawnShares += pendingShares;
-        yieldBox.transfer(address(this), to, salaries[salaryId].assetId, pendingShares);
-        emit LogWithdraw(salaryId, to, pendingShares);
+        uint256 pendingShare = _available(salaries[salaryId]);
+        salaries[salaryId].withdrawnShare += pendingShare;
+        yieldBox.transfer(address(this), to, salaries[salaryId].assetId, pendingShare);
+        emit LogWithdraw(salaryId, to, pendingShare);
     }
 
     // Withdraw the maximum amount possible for a salaryId
@@ -155,7 +177,7 @@ contract Salary is BoringBatchable {
 
     // Modifier for functions only allowed by the funder
     modifier onlyFunder(uint256 salaryId) {
-        require(funder[salaryId] == msg.sender, "Salary: not funder");
+        require(salaries[salaryId].funder == msg.sender, "Salary: not funder");
         _;
     }
 
@@ -164,8 +186,8 @@ contract Salary is BoringBatchable {
         // Pay the recipient all accrued funds
         _withdraw(salaryId, salaries[salaryId].recipient);
         // Return the rest to the funder
-        uint256 sharesLeft = salaries[salaryId].shares - salaries[salaryId].withdrawnShares;
-        yieldBox.transfer(address(this), to, salaries[salaryId].assetId, sharesLeft);
-        emit LogCancel(salaryId, to, sharesLeft);
+        uint256 shareLeft = salaries[salaryId].share - salaries[salaryId].withdrawnShare;
+        yieldBox.transfer(address(this), to, salaries[salaryId].assetId, shareLeft);
+        emit LogCancel(salaryId, to, shareLeft);
     }
 }

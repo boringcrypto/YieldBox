@@ -93,7 +93,6 @@ export default class Web3 {
     }
 
     switch(chain: Network) {
-        console.log(chain, window.ethereum)
         if (window.ethereum && window.ethereum.request) {
             window.ethereum
                 .request({
@@ -141,7 +140,7 @@ export default class Web3 {
             const handleAccountsChanged = (newAddresses: string[] | undefined) => {
                 this.addresses = newAddresses || []
                 if (newAddresses && newAddresses.length) {
-                    this.address = newAddresses[0]
+                    this.address = ethers.utils.getAddress(newAddresses[0])
                     this.account = new Account(this.address)
                 } else {
                     this.address = ""

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, inject, watch } from "vue"
-import Data from "../data"
+import Data from "../data-web3"
 import { Network } from "../classes/Network"
 import { ethers, BigNumber } from "ethers"
 import { Token, tokens } from "../classes/TokenManager"
@@ -117,14 +117,7 @@ const withdraw = async () => {
                                 <USDAmount :amount="app.web3.account?.value(token)" />
                             </td>
                             <td class="text-end">
-                                <b-button
-                                    v-b-modal.modal-deposit
-                                    @click="
-                                        depositAmount = null
-                                        depositToken = token
-                                    "
-                                    >Deposit</b-button
-                                >
+                                <b-button v-b-modal.modal-deposit @click="depositToken = token">Deposit</b-button>
                             </td>
                         </tr>
                     </tbody>
@@ -157,14 +150,7 @@ const withdraw = async () => {
                                 <USDAmount :amount="app.web3.account?.assetValue(asset)" />
                             </td>
                             <td class="text-end">
-                                <b-button
-                                    v-b-modal.modal-withdraw
-                                    @click="
-                                        withdrawAmount = null
-                                        withdrawAsset = asset
-                                    "
-                                    >Withdraw</b-button
-                                >
+                                <b-button v-b-modal.modal-withdraw @click="withdrawAsset = asset">Withdraw</b-button>
                             </td>
                         </tr>
                     </tbody>

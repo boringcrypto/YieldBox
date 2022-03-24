@@ -11,9 +11,9 @@ import { Asset, TokenType, YieldBox } from "./YieldBox"
 
 export class Account {
     address: string
-    balances: { [key: string]: BigNumber } = {}
-    tokens: Token[] = []
-    assets: Asset[] = []
+    balances: { [key: string]: BigNumber } = reactive({})
+    tokens: Token[] = reactive([])
+    assets: Asset[] = reactive([])
 
     constructor(address: string) {
         this.address = address
