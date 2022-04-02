@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.9;
+pragma solidity ^0.8.9;
 import "./interfaces/IStrategy.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/BoringAddress.sol";
 import "./ERC1155.sol";
@@ -76,7 +76,10 @@ contract AssetRegister is ERC1155 {
         uint256 tokenId
     ) public returns (uint256 assetId) {
         // Native assets can only be added internally by the NativeTokenFactory
-        require(tokenType == TokenType.ERC20 || tokenType == TokenType.ERC1155, "AssetManager: cannot add Native");
+        require(
+            tokenType == TokenType.ERC20 || tokenType == TokenType.ERC721 || tokenType == TokenType.ERC1155,
+            "AssetManager: cannot add Native"
+        );
         assetId = _registerAsset(tokenType, contractAddress, strategy, tokenId);
     }
 }

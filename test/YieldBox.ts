@@ -20,17 +20,13 @@ import {
     YieldBoxURIBuilder__factory,
     YieldBox__factory,
 } from "../typechain-types"
+import { TokenType } from "../sdk"
 chai.use(solidity)
 
 describe("YieldBox", function () {
     let deployer: SignerWithAddress, alice: SignerWithAddress, bob: SignerWithAddress, carol: SignerWithAddress
     let Deployer: string, Alice: string, Bob: string, Carol: string
     const Zero = ethers.constants.AddressZero
-    enum TokenType {
-        Native = 0,
-        ERC20 = 1,
-        ERC1155 = 2,
-    }
     let weth: WETH9Mock
     let yieldBox: YieldBox
     let uriBuilder: YieldBoxURIBuilder
@@ -57,7 +53,7 @@ describe("YieldBox", function () {
         await yieldBox.deployed()
 
         // Native token
-        await yieldBox.createToken("Boring Token", "BORING", 18)
+        await yieldBox.createToken("Boring Token", "BORING", 18, "")
         await yieldBox.mint(1, Deployer, 10000)
 
         // ERC20 token
@@ -86,7 +82,6 @@ describe("YieldBox", function () {
         expect((await yieldBox.deployTransaction.wait()).status).equals(1)
 
         expect(await yieldBox.wrappedNative()).equals(weth.address)
-        expect(await uriBuilder.yieldBox()).equals(yieldBox.address)
         expect(await yieldBox.uriBuilder()).equals(uriBuilder.address)
     })
 
@@ -319,8 +314,8 @@ describe("YieldBox", function () {
 
     describe("batchTransfer", () => {
         it("can transfer", async function () {
-            await yieldBox.createToken("Test", "TEST", 0)
-            await yieldBox.createToken("Another", "ANY", 12)
+            await yieldBox.createToken("Test", "TEST", 0, "")
+            await yieldBox.createToken("Another", "ANY", 12, "")
             await yieldBox.mint(2, Deployer, 5000)
             await yieldBox.mint(3, Deployer, 3000)
             await expect(yieldBox.connect(deployer).batchTransfer(Deployer, Alice, [1, 3, 2], [1000, 1200, 500]))
@@ -338,8 +333,8 @@ describe("YieldBox", function () {
 
     describe("safeBatchTransfer", () => {
         it("can transfer", async function () {
-            await yieldBox.createToken("Test", "TEST", 0)
-            await yieldBox.createToken("Another", "ANY", 12)
+            await yieldBox.createToken("Test", "TEST", 0, "")
+            await yieldBox.createToken("Another", "ANY", 12, "")
             await yieldBox.mint(2, Deployer, 5000)
             await yieldBox.mint(3, Deployer, 3000)
             await expect(yieldBox.connect(deployer).safeBatchTransferFrom(Deployer, Alice, [1, 3, 2], [1000, 1200, 500], "0x"))
@@ -517,7 +512,14 @@ describe("YieldBox", function () {
 
     describe("uri", () => {
         it("returns the uri from the uriBuilder", async function () {
-            expect(await yieldBox.uri(1)).equals(await uriBuilder.uri(1))
+            const uri = await uriBuilder.uri(
+                await yieldBox.assets(1),
+                await yieldBox.nativeTokens(1),
+                await yieldBox.totalSupply(1),
+                await yieldBox.owner(1)
+            )
+
+            expect(await yieldBox.uri(1)).equals(uri)
         })
     })
 

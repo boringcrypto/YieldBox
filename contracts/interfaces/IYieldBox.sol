@@ -29,4 +29,53 @@ interface IYieldBox {
     function owner(uint256 assetId) external view returns (address owner);
 
     function totalSupply(uint256 assetId) external view returns (uint256 totalSupply);
+
+    function depositAsset(
+        uint256 assetId,
+        address from,
+        address to,
+        uint256 amount,
+        uint256 share
+    ) external returns (uint256 amountOut, uint256 shareOut);
+
+    function withdraw(
+        uint256 assetId,
+        address from,
+        address to,
+        uint256 amount,
+        uint256 share
+    ) external returns (uint256 amountOut, uint256 shareOut);
+
+    function transfer(
+        address from,
+        address to,
+        uint256 assetId,
+        uint256 share
+    ) external;
+
+    function batchTransfer(
+        address from,
+        address to,
+        uint256[] calldata assetIds_,
+        uint256[] calldata shares_
+    ) external;
+
+    function transferMultiple(
+        address from,
+        address[] calldata tos,
+        uint256 assetId,
+        uint256[] calldata shares
+    ) external;
+
+    function toShare(
+        uint256 assetId,
+        uint256 amount,
+        bool roundUp
+    ) external view returns (uint256 share);
+
+    function toAmount(
+        uint256 assetId,
+        uint256 share,
+        bool roundUp
+    ) external view returns (uint256 amount);
 }

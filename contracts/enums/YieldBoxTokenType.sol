@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.9;
+pragma solidity ^0.8.9;
 
 /// @title TokenType
 /// @author BoringCrypto (@Boring_Crypto)
@@ -10,6 +10,7 @@ pragma solidity 0.8.9;
 enum TokenType {
     Native,
     ERC20,
+    ERC721,
     ERC1155,
     None
 }

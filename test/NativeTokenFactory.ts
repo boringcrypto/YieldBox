@@ -3,6 +3,7 @@ import { solidity } from "ethereum-waffle"
 import { ethers } from "hardhat"
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers"
 import { NativeTokenFactory, NativeTokenFactory__factory } from "../typechain-types"
+import { TokenType } from "../sdk"
 chai.use(solidity)
 
 describe("NativeTokenFactory", () => {
@@ -10,11 +11,6 @@ describe("NativeTokenFactory", () => {
     let Deployer: string, Alice: string, Bob: string, Carol: string
     const Zero = ethers.constants.AddressZero
     let factory: NativeTokenFactory
-    enum TokenType {
-        Native = 0,
-        ERC20 = 1,
-        ERC1155 = 2,
-    }
 
     beforeEach(async () => {
         ;({ deployer, alice, bob, carol } = await ethers.getNamedSigners())
@@ -24,7 +20,7 @@ describe("NativeTokenFactory", () => {
         Carol = carol.address
         factory = await new NativeTokenFactory__factory(deployer).deploy()
         await factory.deployed()
-        await factory.createToken("Boring Token", "BORING", 18)
+        await factory.createToken("Boring Token", "BORING", 18, "")
     })
 
     it("Deploy NativeTokenFactory", async function () {
@@ -32,7 +28,7 @@ describe("NativeTokenFactory", () => {
     })
 
     it("can create a token", async function () {
-        await expect(factory.createToken("Test Token", "TEST", 12))
+        await expect(factory.createToken("Test Token", "TEST", 12, ""))
             .to.emit(factory, "URI")
             .withArgs("", 2)
             .to.emit(factory, "AssetRegistered")

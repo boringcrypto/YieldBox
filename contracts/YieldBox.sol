@@ -21,10 +21,11 @@
 // BEWARE: Still under active development
 // Security review not done yet
 
-pragma solidity 0.8.9;
+pragma solidity ^0.8.9;
 pragma experimental ABIEncoderV2;
 import "./interfaces/IWrappedNative.sol";
 import "./interfaces/IStrategy.sol";
+import "@boringcrypto/boring-solidity/contracts/interfaces/IERC721.sol";
 import "@boringcrypto/boring-solidity/contracts/interfaces/IERC1155.sol";
 import "@boringcrypto/boring-solidity/contracts/libraries/Base64.sol";
 import "@boringcrypto/boring-solidity/contracts/Domain.sol";
@@ -108,6 +109,7 @@ contract YieldBox is BoringBatchable, NativeTokenFactory, ERC1155TokenReceiver {
         // Checks
         Asset storage asset = assets[assetId];
         require(asset.tokenType != TokenType.Native, "YieldBox: can't deposit Native");
+        require(asset.tokenType != TokenType.ERC721, "YieldBox: use DepositNFT");
 
         // Effects
         uint256 totalAmount = _tokenBalanceOf(asset);
@@ -141,6 +143,36 @@ contract YieldBox is BoringBatchable, NativeTokenFactory, ERC1155TokenReceiver {
         }
 
         return (amount, share);
+    }
+
+    /// @notice Deposit an NFT asset
+    /// @param assetId The id of the asset.
+    /// @param from which account to pull the tokens.
+    /// @param to which account to push the tokens.
+    /// @return amountOut The amount deposited.
+    /// @return shareOut The deposited amount repesented in shares.
+    function depositNFTAsset(
+        uint256 assetId,
+        address from,
+        address to
+    ) public allowed(from) returns (uint256 amountOut, uint256 shareOut) {
+        // Checks
+        Asset storage asset = assets[assetId];
+        require(asset.tokenType == TokenType.ERC721, "YieldBox: not ERC721");
+
+        // Effects
+        _mint(to, assetId, 1);
+
+        address destination = asset.strategy == NO_STRATEGY ? address(this) : address(asset.strategy);
+
+        // Interactions
+        IERC721(asset.contractAddress).safeTransferFrom(from, destination, asset.tokenId);
+
+        if (asset.strategy != NO_STRATEGY) {
+            asset.strategy.deposited(1);
+        }
+
+        return (1, 1);
     }
 
     function depositETHAsset(
@@ -218,6 +250,8 @@ contract YieldBox is BoringBatchable, NativeTokenFactory, ERC1155TokenReceiver {
                 } else {
                     IERC20(asset.contractAddress).safeTransfer(to, amount);
                 }
+            } else if (asset.tokenType == TokenType.ERC721) {
+                IERC721(asset.contractAddress).safeTransferFrom(address(this), to, asset.tokenId);
             } else {
                 // IERC1155
                 IERC1155(asset.contractAddress).safeTransferFrom(address(this), to, asset.tokenId, amount, "");
@@ -333,7 +367,7 @@ contract YieldBox is BoringBatchable, NativeTokenFactory, ERC1155TokenReceiver {
         uint256 amount,
         bool roundUp
     ) external view returns (uint256 share) {
-        if (assets[assetId].tokenType == TokenType.Native) {
+        if (assets[assetId].tokenType == TokenType.Native || assets[assetId].tokenType == TokenType.ERC721) {
             share = amount;
         } else {
             share = amount._toShares(totalSupply[assetId], _tokenBalanceOf(assets[assetId]), roundUp);
@@ -350,7 +384,7 @@ contract YieldBox is BoringBatchable, NativeTokenFactory, ERC1155TokenReceiver {
         uint256 share,
         bool roundUp
     ) external view returns (uint256 amount) {
-        if (assets[assetId].tokenType == TokenType.Native) {
+        if (assets[assetId].tokenType == TokenType.Native || assets[assetId].tokenType == TokenType.ERC721) {
             amount = share;
         } else {
             amount = share._toAmount(totalSupply[assetId], _tokenBalanceOf(assets[assetId]), roundUp);
@@ -361,7 +395,7 @@ contract YieldBox is BoringBatchable, NativeTokenFactory, ERC1155TokenReceiver {
     /// @param user The `user` to get the amount for.
     /// @param assetId The id of the asset.
     function amountOf(address user, uint256 assetId) external view returns (uint256 amount) {
-        if (assets[assetId].tokenType == TokenType.Native) {
+        if (assets[assetId].tokenType == TokenType.Native || assets[assetId].tokenType == TokenType.ERC721) {
             amount = balanceOf[user][assetId];
         } else {
             amount = balanceOf[user][assetId]._toAmount(totalSupply[assetId], _tokenBalanceOf(assets[assetId]), false);

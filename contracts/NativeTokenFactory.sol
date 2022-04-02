@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.9;
+pragma solidity ^0.8.9;
 import "./AssetRegister.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 
@@ -7,6 +7,7 @@ struct NativeToken {
     string name;
     string symbol;
     uint8 decimals;
+    string uri;
 }
 
 /// @title NativeTokenFactory
@@ -96,14 +97,15 @@ contract NativeTokenFactory is AssetRegister, BoringFactory {
     function createToken(
         string calldata name,
         string calldata symbol,
-        uint8 decimals
+        uint8 decimals,
+        string calldata uri
     ) public returns (uint256 tokenId) {
         // To keep each Token unique in the AssetRegister, we use the assetId as the tokenId. So for native assets, the tokenId is always equal to the assetId.
         tokenId = assets.length;
         _registerAsset(TokenType.Native, address(0), NO_STRATEGY, tokenId);
         // Initial supply is 0, use owner can mint. For a fixed supply the owner can mint and revoke ownership.
         // The msg.sender is the initial owner, can be changed after.
-        nativeTokens[tokenId] = NativeToken(name, symbol, decimals);
+        nativeTokens[tokenId] = NativeToken(name, symbol, decimals, uri);
         owner[tokenId] = msg.sender;
 
         emit TokenCreated(msg.sender, name, symbol, decimals, tokenId);

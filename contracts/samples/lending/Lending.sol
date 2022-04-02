@@ -112,7 +112,8 @@ contract LendingPair is IMasterContract {
         uint256 marketId = yieldBox.createToken(
             string(abi.encodePacked(yieldBox.name(collateral_), "/", yieldBox.name(asset_), "-", oracle_.name(oracleData_))),
             string(abi.encodePacked(yieldBox.symbol(collateral_), "/", yieldBox.symbol(asset_), "-", oracle_.symbol(oracleData_))),
-            18
+            18,
+            ""
         );
 
         Market storage market = markets[marketId];

@@ -8,12 +8,7 @@ import Decimal from "decimal.js-light"
 import { YieldBox as YieldBoxContract, YieldBox__factory } from "../../typechain-types"
 import app from "../data-web3"
 import { Token, tokens } from "./TokenManager"
-
-export enum TokenType {
-    Native = 0,
-    ERC20 = 1,
-    ERC1155 = 2,
-}
+import { TokenType } from "../../sdk"
 
 export class Asset {
     network: Network

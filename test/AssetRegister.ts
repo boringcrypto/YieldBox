@@ -9,6 +9,7 @@ import {
     SushiStakingStrategy,
     SushiStakingStrategy__factory,
 } from "../typechain-types"
+import { TokenType } from "../sdk"
 chai.use(solidity)
 
 describe("AssetRegister", () => {
@@ -17,11 +18,6 @@ describe("AssetRegister", () => {
     const Zero = ethers.constants.AddressZero
     let register: AssetRegister
     let sushiStrategy: SushiStakingStrategy
-    enum TokenType {
-        Native = 0,
-        ERC20 = 1,
-        ERC1155 = 2,
-    }
     const sushi = "0x6B3595068778DD592e39A122f4f5a5cF09C90fE2"
     const rarible = "0xd07dc4262BCDbf85190C01c996b4C06a461d2430"
 
@@ -34,7 +30,7 @@ describe("AssetRegister", () => {
         register = await new AssetRegister__factory(deployer).deploy()
         await register.deployed()
 
-        sushiStrategy = await new SushiStakingStrategy__factory(deployer).deploy(Zero)
+        sushiStrategy = await new SushiStakingStrategy__factory(deployer).deploy(Zero, sushi)
         await sushiStrategy.deployed()
     })
 

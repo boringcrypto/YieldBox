@@ -1,7 +1,7 @@
 {
     "license": "UNLICENSED",
     "devDependencies": {
-        "@boringcrypto/hardhat-framework": "../hardhat-framework",
+        "@boringcrypto/hardhat-framework": "boringcrypto/hardhat-framework#fb3efb3f2f6db3ca798acd5fd3454e62b169a856",
         "concurrently": "^7.0.0",
         "husky": "^7.0.0"
     },
