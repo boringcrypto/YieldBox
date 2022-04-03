@@ -10,6 +10,8 @@ import app from "../data-web3"
 import { Token, tokens } from "./TokenManager"
 import { TokenType } from "../../sdk"
 
+export { TokenType }
+
 export class Asset {
     network: Network
     assetId: number

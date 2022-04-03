@@ -188,6 +188,11 @@
                                     "internalType": "uint8",
                                     "name": "decimals",
                                     "type": "uint8"
+                                },
+                                {
+                                    "internalType": "string",
+                                    "name": "uri",
+                                    "type": "string"
                                 }
                             ],
                             "internalType": "struct NativeToken",
@@ -763,6 +768,11 @@
                             "internalType": "uint8",
                             "name": "decimals",
                             "type": "uint8"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "uri",
+                            "type": "string"
                         }
                     ],
                     "name": "createToken",
@@ -998,6 +1008,40 @@
                 {
                     "inputs": [
                         {
+                            "internalType": "uint256",
+                            "name": "assetId",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "address",
+                            "name": "from",
+                            "type": "address"
+                        },
+                        {
+                            "internalType": "address",
+                            "name": "to",
+                            "type": "address"
+                        }
+                    ],
+                    "name": "depositNFTAsset",
+                    "outputs": [
+                        {
+                            "internalType": "uint256",
+                            "name": "amountOut",
+                            "type": "uint256"
+                        },
+                        {
+                            "internalType": "uint256",
+                            "name": "shareOut",
+                            "type": "uint256"
+                        }
+                    ],
+                    "stateMutability": "nonpayable",
+                    "type": "function"
+                },
+                {
+                    "inputs": [
+                        {
                             "internalType": "enum TokenType",
                             "name": "",
                             "type": "uint8"
@@ -1138,6 +1182,11 @@
                             "internalType": "uint8",
                             "name": "decimals",
                             "type": "uint8"
+                        },
+                        {
+                            "internalType": "string",
+                            "name": "uri",
+                            "type": "string"
                         }
                     ],
                     "stateMutability": "view",
