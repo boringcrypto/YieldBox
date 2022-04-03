@@ -17,3 +17,4 @@ yarn-error.log
 .certora_*.json
 deployments/localhost
 typechain-types
+workbench/contracts.json

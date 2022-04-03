@@ -8,7 +8,9 @@ import "bootstrap-vue-3/dist/bootstrap-vue-3.css"
 
 import App from "./App.vue"
 import Home from "./pages/Home.vue"
+import Escrow from "./pages/Escrow.vue"
 import Salary from "./pages/Salary.vue"
+import Tokenizer from "./pages/Tokenizer.vue"
 import YieldBoxBalances from "./pages/YieldBoxBalances.vue"
 
 import Data from "./data-web3"
@@ -80,7 +82,9 @@ async function main() {
             history: createWebHashHistory(),
             routes: [
                 { path: "/", component: Home },
+                { path: "/escrow", component: Escrow },
                 { path: "/salary", component: Salary },
+                { path: "/tokenizer", component: Tokenizer },
                 { path: "/yieldbox/balances/:address", component: YieldBoxBalances },
             ],
         })

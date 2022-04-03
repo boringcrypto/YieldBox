@@ -38,6 +38,8 @@
                             <li><router-link class="dropdown-item" aria-current="page" to="/salary">Salary</router-link></li>
                             <li><router-link class="dropdown-item" aria-current="page" to="/lending">Lending</router-link></li>
                             <li><router-link class="dropdown-item" aria-current="page" to="/swap">Swap</router-link></li>
+                            <li><router-link class="dropdown-item" aria-current="page" to="/escrow">Escrow</router-link></li>
+                            <li><router-link class="dropdown-item" aria-current="page" to="/tokenizer">Tokenizer</router-link></li>
                         </ul>
                     </li>
                 </ul>
