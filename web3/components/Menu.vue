@@ -1,11 +1,12 @@
-<script setup lang="ts"></script>
+<script setup lang="ts">
+import { Network } from "../classes/Network"
+</script>
 
 <template>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light sticky-top">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-light sticky-top">
         <div class="container-fluid">
             <a class="navbar-brand" href="#">
-                <img src="/favicon.ico" alt="" height="32" />
-                {{ app.name }}
+                <img src="/yieldbox.png" alt="" height="32" />
             </a>
             <button
                 class="navbar-toggler"
@@ -44,14 +45,23 @@
                     </li>
                 </ul>
                 <ul class="navbar-nav d-flex">
-                    {{
-                        app.web3.connector?.chainName
-                    }}
-                    {{
-                        app.web3.address
-                    }}
+                    <li class="nav-item nav-link">
+                        {{ app.web3.connector?.chainName }}
+                        <b-button v-if="app.web3.connector?.chainId !== Network.HARDHAT" @click="app.web3.switch(Network.HARDHAT)"
+                            >Switch</b-button
+                        >
+                    </li>
+                    <li class="nav-item nav-link">
+                        {{ app.web3.address }}
+                    </li>
                 </ul>
             </div>
         </div>
     </nav>
 </template>
+
+<style scoped>
+.navbar {
+    background-color: #4983e7 !important;
+}
+</style>

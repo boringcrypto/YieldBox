@@ -98,9 +98,9 @@ const withdraw = async () => {
 
 <template>
     <div class="container-xl">
-        <div class="row">
+        <div class="row mt-3">
             <div class="col-12 col-md-6">
-                <h1>Wallet</h1>
+                <h3>Wallet</h3>
                 <table class="table">
                     <thead>
                         <th>Token</th>
@@ -129,7 +129,7 @@ const withdraw = async () => {
                 </b-input-group>
             </div>
             <div class="col-12 col-md-6">
-                <h1>YieldBox</h1>
+                <h3>YieldBox</h3>
                 <table class="table">
                     <thead>
                         <th>Token</th>
@@ -160,6 +160,7 @@ const withdraw = async () => {
 
         <Web3Modal
             id="modal-deposit"
+            :title="'Deposit ' + depositToken?.symbol"
             :token="depositToken"
             :spender="yieldBox.yieldBox.address"
             :amount="app.web3.account?.balance(depositToken)"
@@ -167,6 +168,9 @@ const withdraw = async () => {
         >
             <label>Amount:</label>
             <TokenAmountInput v-model="depositAmount" :token="depositToken" :max="app.web3.account?.balance(depositToken)"></TokenAmountInput>
+
+            <label>Strategy:</label>
+            <b-form-select></b-form-select>
         </Web3Modal>
 
         <Web3Modal id="modal-withdraw" @click="withdraw">

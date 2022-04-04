@@ -519,7 +519,7 @@ class HardhatConnector extends EthereumConnector {
         return ["http://127.0.0.1:8545/"]
     }
     static get blockExplorerUrls() {
-        return []
+        return ["https://localhost:2504/"]
     }
 }
 
