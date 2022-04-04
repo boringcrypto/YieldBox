@@ -2,7 +2,7 @@ if (process.env.DOTENV_PATH) {
     console.log("Using custom .env path:", process.env.DOTENV_PATH)
     require("dotenv").config({ path: process.env.DOTENV_PATH })
 } else {
-    require("dotenv")
+    require("dotenv").config()
 }
 
 import { HardhatUserConfig, task } from "hardhat/config"
