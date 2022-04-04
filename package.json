@@ -11,7 +11,7 @@
         "coverage": "hardhat coverage && open-cli ./coverage/index.html",
         "prettier": "prettier --write *.js *.ts *.json test/**/*.ts contracts/**/*.sol",
         "flat": "hardhat flat .\\contracts\\YieldBox.sol --output .\\flat\\YieldBoxFlat.sol",
-        "dev": "concurrently \"hardhat node --export ./workbench/contracts.json --watch\" \"vite --config web3/vite.config.ts\" \"vite --config workbench/vite.config.ts\"",
+        "dev": "hardhat compile && concurrently \"hardhat node --export ./workbench/contracts.json --watch\" \"vite --config web3/vite.config.ts\" \"vite --config workbench/vite.config.ts\"",
         "build": "vue-tsc --noEmit && vite build",
         "preview": "vite preview",
         "prepare": "husky install",

@@ -46,10 +46,11 @@ import { Network } from "../classes/Network"
                 </ul>
                 <ul class="navbar-nav d-flex">
                     <li class="nav-item nav-link">
-                        {{ app.web3.connector?.chainName }}
-                        <b-button v-if="app.web3.connector?.chainId !== Network.HARDHAT" @click="app.web3.switch(Network.HARDHAT)"
-                            >Switch</b-button
-                        >
+                        <span v-if="app.web3.connector?.chainId !== Network.HARDHAT">Switch to Hardhat!</span>
+                        <span v-else>
+                            {{ app.web3.connector?.chainName }}
+                        </span>
+                        <b-button v-if="!app.web3.address" @click="app.web3.connect()">Connect</b-button>
                     </li>
                     <li class="nav-item nav-link">
                         {{ app.web3.address }}

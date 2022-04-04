@@ -9,7 +9,9 @@ import "bootstrap-vue-3/dist/bootstrap-vue-3.css"
 import App from "./App.vue"
 import Home from "./pages/Home.vue"
 import Escrow from "./pages/Escrow.vue"
+import Lending from "./pages/Lending.vue"
 import Salary from "./pages/Salary.vue"
+import Swap from "./pages/Swap.vue"
 import Tokenizer from "./pages/Tokenizer.vue"
 import YieldBoxBalances from "./pages/YieldBoxBalances.vue"
 
@@ -84,7 +86,9 @@ async function main() {
                 { path: "/", component: Home },
                 { path: "/escrow", component: Escrow },
                 { path: "/salary", component: Salary },
+                { path: "/swap", component: Swap },
                 { path: "/tokenizer", component: Tokenizer },
+                { path: "/lending", component: Lending },
                 { path: "/yieldbox/balances/:address", component: YieldBoxBalances },
             ],
         })

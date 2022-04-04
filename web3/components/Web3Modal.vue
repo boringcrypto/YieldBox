@@ -86,7 +86,10 @@ const ok = async () => {
         const connector = new connectors[app.web3.chainId]()
         if (props.token?.address && props.spender && app.web3.address) {
             const erc20 = await IERC20__factory.connect(props.token.address, connector.provider)
-            await app.web3.send(erc20.connect(app.web3.provider!.getSigner()).approve(props.spender, ethers.constants.MaxUint256), "Approve ")
+            await app.web3.send(
+                erc20.connect(app.web3.provider!.getSigner()).approve(props.spender, ethers.constants.MaxUint256),
+                "Approve " + props.token.symbol
+            )
         }
     } else {
         emit("click")
