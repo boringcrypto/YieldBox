@@ -41,6 +41,12 @@ const last_block =
           )
         : BigNumber.from(14333352)
 
+console.log(
+    process.env.ALCHEMY_API_KEY
+        ? "Forking from block " + (last_block.toNumber() - 6).toString()
+        : "Please add your Alchemy key to the ALCHEMY_API_KEY environment variable or to .env"
+)
+
 const config: HardhatUserConfig = {
     solidity: {
         version: "0.8.9",
