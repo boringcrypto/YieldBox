@@ -23,21 +23,21 @@ watch(() => [address, hardhat.block.number], load)
 </script>
 
 <template>
-    <div class="row">
+    <div class="row" v-if="info">
         <div class="mx-auto" style="max-width: 800px">
             <h2>
                 <span v-if="info">
                     <b-icon v-if="info.type == 'zero'" class="me-1" icon="trash2" />
                     <b-icon v-if="info.type == 'wallet'" class="me-1" icon="wallet" />
                     <b-icon v-if="info.type == 'contract'" class="me-1" icon="file-text" />
-                    <span v-if="app.addresses[address].type == 'miner'" class="me-1">👷</span>
-                    {{ app.addresses[address].name }}
+                    <span v-if="info.type == 'miner'" class="me-1">👷</span>
+                    {{ info.name }}
                 </span>
                 <span v-else>{{ address }}</span>
             </h2>
             <span v-if="info"> {{ address }}<br /> </span>
 
-            <b-card v-if="info && info.type == 'wallet'" class="mt-3"> This is a named wallet </b-card>
+            <b-card v-if="info && info?.type == 'wallet'" class="mt-3"> This is a named wallet </b-card>
 
             ETH Balance {{ detail.ethBalance.toString() }}
         </div>

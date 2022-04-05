@@ -1,4 +1,4 @@
-import { reactive } from "vue"
+import { reactive, markRaw } from "vue"
 import { ethers } from "ethers"
 import Contracts from "./contracts.json"
 
@@ -17,7 +17,10 @@ export default reactive({
     contracts: {} as { [address: string]: ethers.Contract },
 
     lookupAddress: function (name: string) {
-        return this.addresses[name.toLowerCase()]
+        if (name) {
+            return this.addresses[name.toLowerCase()]
+        }
+        return null
     },
 
     lookupName: function (name: string) {
@@ -47,7 +50,13 @@ export default reactive({
         for (let name of Object.keys(Contracts.contracts)) {
             const contractInfo = Contracts.contracts[name as keyof typeof Contracts.contracts]
             const contract = new ethers.Contract(contractInfo.address, contractInfo.abi)
-            console.log(name, contract.address)
+            this.contracts[contract.address] = contract
+            this.addNamedAddress({
+                type: "contract",
+                address: contract.address,
+                name: name,
+                object: markRaw(contract),
+            })
         }
     },
 })

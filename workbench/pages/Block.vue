@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { hardhat } from "../classes/HardhatProvider"
+import type { HardhatTransaction } from "../classes/HardhatProvider"
 import { defineComponent, ref, watch, computed } from "vue"
 import { BlockWithTransactions } from "@ethersproject/abstract-provider"
 import { useRoute, useRouter } from "vue-router"
-import { hardhat } from "../classes/HardhatProvider"
 import AddressLink from "../components/AddressLink.vue"
 import Ago from "../components/Ago.vue"
+import { BigNumber } from "ethers"
 
 const route = useRoute()
 const router = useRouter()
@@ -20,8 +22,10 @@ await load()
 watch(
     () => route.params.number,
     () => {
-        current_block.value = parseInt(route.params.number as string)
-        load()
+        if (route.params.number) {
+            current_block.value = parseInt(route.params.number as string)
+            load()
+        }
     }
 )
 
@@ -57,12 +61,12 @@ watch(current_block, (value) => {
                     <td>Gas Used</td>
                     <td>
                         {{ block.gasUsed.toString() }}
-                        ({{ block.gasUsed.mul(10000).div(block.gasLimit).toDec(2).toString() }}%)
+                        ({{ BigNumber.from(block.gasUsed).mul(10000).div(block.gasLimit).toDec(2).toString() }}%)
                     </td>
                 </tr>
                 <tr>
                     <td>Base Fee Per Gas</td>
-                    <td>{{ block.baseFeePerGas?.toDec(9).toString() }} Gwei</td>
+                    <td>{{ BigNumber.from(block.baseFeePerGas).toDec(9).toString() }} Gwei</td>
                 </tr>
                 <tr>
                     <td>Extra Data</td>
@@ -84,17 +88,12 @@ watch(current_block, (value) => {
         </table>
 
         <h3 class="mt-3">Transactions</h3>
-        <template v-for="tx in block.transactions" :key="tx.hash">
+        <template v-for="tx in (block.transactions as unknown as HardhatTransaction[])" :key="tx.hash">
             <b-card>
                 <b-card-title>
                     <span v-if="tx.creates">
                         Created contract
-                        <span v-if="false && app.contractByAddress[tx.creates]">
-                            {{ app.contractByAddress[tx.creates].params.name }}
-                        </span>
-                        <span v-else>
-                            {{ tx.creates }}
-                        </span>
+                        <address-link :address="tx.creates" />
                     </span>
                 </b-card-title>
                 <b-card-text>
@@ -108,8 +107,8 @@ watch(current_block, (value) => {
                     Gas Limit: {{ tx.gasLimit.toString() }}<br />
                     Gas Price: {{ tx.gasPrice.toString() }}<br />
                     Value: {{ tx.value.toString() }}<br />
-                    Max Priority Fee: {{ tx.maxPriorityFeePerGas.toString() }}<br />
-                    Max Fee: {{ tx.maxFeePerGas.toString() }}<br />
+                    Max Priority Fee: {{ tx.maxPriorityFeePerGas?.toString() }}<br />
+                    Max Fee: {{ tx.maxFeePerGas?.toString() }}<br />
                     Data: {{ tx.data }}<br />
                 </b-card-text>
             </b-card>

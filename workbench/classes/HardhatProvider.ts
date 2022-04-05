@@ -2,6 +2,30 @@ import { BigNumber, ethers } from "ethers"
 import { BlockWithTransactions } from "@ethersproject/abstract-provider"
 import { computed, markRaw, reactive } from "vue"
 
+type HardhatTransaction = {
+    hash: string
+    type: number
+    accessList: any
+    blockHash: string
+    blockNumber: number
+    transactionIndex: number
+    confirmation: number
+    from: string
+    gasPrice: BigNumber
+    maxPriorityFeePerGas?: BigNumber
+    maxFeePerGas?: BigNumber
+    gasLimit: BigNumber
+    to?: string
+    value: BigNumber
+    nonce: number
+    data: string
+    r: string
+    s: string
+    v: number
+    chainId: number
+    creates?: string
+}
+
 class NamedWallet extends ethers.Wallet {
     name = "" as string
 }
@@ -86,4 +110,4 @@ interface CallError extends Error {
     error: string
 }
 
-export { HardhatProvider, hardhat, WalletName, CallError }
+export { HardhatProvider, HardhatTransaction, hardhat, WalletName, CallError }
