@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
 import "./AssetRegister.sol";
+import "./BoringMath.sol";
 import "@boringcrypto/boring-solidity/contracts/BoringFactory.sol";
 
 struct NativeToken {
@@ -19,6 +20,8 @@ struct NativeToken {
 /// - no hidden features, all these tokens behave the same
 /// TODO: MintBatch? BurnBatch?
 contract NativeTokenFactory is AssetRegister, BoringFactory {
+    using BoringMath for uint256;
+
     mapping(uint256 => NativeToken) public nativeTokens;
     mapping(uint256 => address) public owner;
     mapping(uint256 => address) public pendingOwner;
@@ -99,9 +102,9 @@ contract NativeTokenFactory is AssetRegister, BoringFactory {
         string calldata symbol,
         uint8 decimals,
         string calldata uri
-    ) public returns (uint256 tokenId) {
+    ) public returns (uint32 tokenId) {
         // To keep each Token unique in the AssetRegister, we use the assetId as the tokenId. So for native assets, the tokenId is always equal to the assetId.
-        tokenId = assets.length;
+        tokenId = assets.length.to32();
         _registerAsset(TokenType.Native, address(0), NO_STRATEGY, tokenId);
         // Initial supply is 0, use owner can mint. For a fixed supply the owner can mint and revoke ownership.
         // The msg.sender is the initial owner, can be changed after.

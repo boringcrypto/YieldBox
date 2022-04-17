@@ -1,5 +1,5 @@
 import Decimal from "decimal.js-light"
-import { NetworkConnector } from "./NetworkConnector"
+import { NetworkConnector } from "../../sdk/NetworkConnector"
 import { ERC20Token, SLPToken, Token, tokens } from "./TokenManager"
 
 export class CoinGecko {

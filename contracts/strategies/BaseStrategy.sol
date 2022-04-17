@@ -17,6 +17,20 @@ abstract contract BaseStrategy is IStrategy {
         yieldBox = _yieldBox;
     }
 
+    function _currentBalance() internal view virtual returns (uint256 amount);
+
+    function currentBalance() public view virtual returns (uint256 amount) {
+        return _currentBalance();
+    }
+
+    function withdrawable() external view virtual returns (uint256 amount) {
+        return _currentBalance();
+    }
+
+    function cheapWithdrawable() external view virtual returns (uint256 amount) {
+        return _currentBalance();
+    }
+
     function _deposited(uint256 amount) internal virtual;
 
     function deposited(uint256 amount) external {

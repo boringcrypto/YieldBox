@@ -102,39 +102,35 @@ contract YieldOptions {
         option.currency = currency;
         option.price = price;
         option.expiry = expiry;
-        option.optionAssetId = uint32(
-            yieldBox.createToken(
-                "YieldOption",
-                string(
-                    abi.encodePacked(
-                        "yo",
-                        yieldBox.symbol(option.asset),
-                        ":",
-                        yieldBox.symbol(option.currency),
-                        " ",
-                        String.numToString(option.price, yieldBox.decimals(option.currency))
-                    )
-                ),
-                18,
-                ""
-            )
+        option.optionAssetId = yieldBox.createToken(
+            "YieldOption",
+            string(
+                abi.encodePacked(
+                    "yo",
+                    yieldBox.symbol(option.asset),
+                    ":",
+                    yieldBox.symbol(option.currency),
+                    " ",
+                    String.numToString(option.price, yieldBox.decimals(option.currency))
+                )
+            ),
+            18,
+            ""
         );
-        option.minterAssetId = uint32(
-            yieldBox.createToken(
-                "YieldOptionMinter",
-                string(
-                    abi.encodePacked(
-                        "ym",
-                        yieldBox.symbol(option.asset),
-                        ":",
-                        yieldBox.symbol(option.currency),
-                        " ",
-                        String.numToString(option.price, yieldBox.decimals(option.currency))
-                    )
-                ),
-                18,
-                ""
-            )
+        option.minterAssetId = yieldBox.createToken(
+            "YieldOptionMinter",
+            string(
+                abi.encodePacked(
+                    "ym",
+                    yieldBox.symbol(option.asset),
+                    ":",
+                    yieldBox.symbol(option.currency),
+                    " ",
+                    String.numToString(option.price, yieldBox.decimals(option.currency))
+                )
+            ),
+            18,
+            ""
         );
 
         optionId = options.length;

@@ -44,7 +44,7 @@ interface IStrategy {
     /// ###########################
 
     /// Returns the total value the strategy holds (principle + gain) expressed in asset token amount.
-    /// This should be cheap in gas to retrieve. Can return a bit less than the actual, but shouldn't return more.
+    /// This should be cheap in gas to retrieve. Can return a bit less than the actual, but MUST NOT return more.
     /// The gas cost of this function will be paid on any deposit or withdrawal onto and out of the YieldBox
     /// that uses this strategy. Also, anytime a protocol converts between shares and amount, this gets called.
     function currentBalance() external view returns (uint256 amount);
@@ -74,6 +74,7 @@ interface IStrategy {
     /// When a strategy keeps a little reserve for cheap withdrawals and the requested withdrawal goes over this amount,
     /// the strategy should divest enough from the strategy to complete the withdrawal and rebalance the reserve.
     /// If the strategy handles native tokens (ETH) it should send this, not a wrapped version.
+    /// With some strategies it might be hard to withdraw exactly the correct amount.
     /// Only accept this call from the YieldBox
     function withdraw(address to, uint256 amount) external;
 }

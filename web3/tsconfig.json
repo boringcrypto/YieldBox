@@ -11,6 +11,17 @@
         "esModuleInterop": true,
         "lib": ["esnext", "dom"]
     },
-    "include": ["**/*.ts", "**/*.d.ts", "**/*.tsx", "**/*.vue"],
+    "include": [
+        "**/*.ts",
+        "**/*.d.ts",
+        "**/*.tsx",
+        "**/*.vue",
+        "../sdk/NetworkConnectors.ts",
+        "../sdk/types/factories/Multicall2__factory.ts",
+        "../sdk/types/Multicall2.ts",
+        "../sdk/NetworkConnector.ts",
+        "../sdk/Network.ts",
+        "../sdk/Web3.ts"
+    ],
     "references": [{ "path": "./tsconfig.node.json" }]
 }

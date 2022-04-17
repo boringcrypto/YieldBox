@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, Ref, inject, watch, computed, reactive } from "vue"
 import Data from "../data-web3"
-import { Network } from "../classes/Network"
+import { Network } from "../../sdk/Network"
 import { ethers, BigNumber } from "ethers"
 import { Token, tokens } from "../classes/TokenManager"
 import { YieldBox, TokenType, Asset } from "../classes/YieldBox"
@@ -9,7 +9,7 @@ import DeployedYieldBox from "../../deployments/localhost/YieldBox.json"
 import DeployedSalary from "../../deployments/localhost/Salary.json"
 import USDAmount from "../components/USDAmount.vue"
 import TokenAmount from "../components/TokenAmount.vue"
-import { connectors } from "../classes/NetworkConnectors"
+import { connectors } from "../../sdk/NetworkConnectors"
 import { CoinGecko } from "../classes/CoinGeckoAPI"
 import Web3Modal from "../components/Web3Modal.vue"
 import TokenAmountInput from "../components/TokenAmountInput.vue"
@@ -101,7 +101,7 @@ const load = async () => {
     await yieldBox.loadAssets()
 
     console.log("Load yieldBox balances")
-    await app.web3.account?.loadYieldBoxBalances(yieldBox)
+    await app.account?.loadYieldBoxBalances(yieldBox)
 
     console.log("Load prices")
     const connector = new connectors[app.web3.chainId]()
@@ -122,7 +122,7 @@ watch(
 
 const addAssetId = ref(0)
 const addAsset = computed(() => {
-    return app.web3.account?.assets.length || 0 > addAssetId.value ? app.web3.account?.assets[addAssetId.value] : undefined
+    return app.account?.assets.length || 0 > addAssetId.value ? app.account?.assets[addAssetId.value] : undefined
 })
 const addAmount = ref(BigNumber.from(0))
 const addRecipient = ref("")
@@ -131,7 +131,7 @@ const addCliffDate = ref(new Date(Date.now()).toISOString().split("T")[0])
 const addEndDate = ref(new Date(Date.now()).toISOString().split("T")[0])
 
 const add = async () => {
-    if (addAsset.value && app.web3.account) {
+    if (addAsset.value && app.account) {
         await app.web3.send(
             contract.create(
                 addRecipient.value,
@@ -139,7 +139,7 @@ const add = async () => {
                 Date.parse(addCliffDate.value) / 1000,
                 Date.parse(addEndDate.value) / 1000,
                 addCliffPercentage.value,
-                addAmount.value.eq(-1) ? app.web3.account?.assetBalance(addAsset.value) : addAmount.value
+                addAmount.value.eq(-1) ? app.account?.assetBalance(addAsset.value) : addAmount.value
             ),
             ""
         )
@@ -181,7 +181,7 @@ const add = async () => {
         >
             <label>Asset:</label>
             <b-form-select v-model="addAssetId">
-                <b-form-select-option v-for="(asset, i) in app.web3.account?.assets" :value="i">
+                <b-form-select-option v-for="(asset, i) in app.account?.assets" :value="i">
                     {{ asset.name }} ({{ asset.symbol }})
                 </b-form-select-option>
             </b-form-select>
@@ -189,14 +189,10 @@ const add = async () => {
             <label class="mt-3">Amount:</label>
             <b-form-group
                 :description="
-                    'Maximum: ' + (app.web3.account?.assetBalance(addAsset).toDisplay(addAsset?.token) || '0') + ' ' + addAsset?.token?.name
+                    'Maximum: ' + (app.account?.assetBalance(addAsset).toDisplay(addAsset?.token) || '0') + ' ' + addAsset?.token?.name
                 "
             >
-                <TokenAmountInput
-                    v-model="addAmount"
-                    :token="addAsset?.token"
-                    :max="app.web3.account?.assetBalance(addAsset)"
-                ></TokenAmountInput>
+                <TokenAmountInput v-model="addAmount" :token="addAsset?.token" :max="app.account?.assetBalance(addAsset)"></TokenAmountInput>
             </b-form-group>
 
             <label>Recipient:</label>

@@ -18,6 +18,7 @@ import YieldBoxBalances from "./pages/YieldBoxBalances.vue"
 import Data from "./data-web3"
 import Decimal from "decimal.js-light"
 import { Token } from "./classes/TokenManager"
+import { Account } from "./classes/Account"
 
 Decimal.config({ precision: 36 })
 Decimal.config({ toExpNeg: -1000 })
@@ -74,6 +75,9 @@ declare module "@vue/runtime-core" {
 
 async function main() {
     const app = createApp(App)
+    Data.web3.onAccountChanged = (address) => {
+        Data.account = new Account(address)
+    }
     await Data.web3.setup()
     window.data = Data
     app.config.globalProperties.app = reactive(Data)

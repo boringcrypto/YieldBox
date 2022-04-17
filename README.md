@@ -30,3 +30,19 @@ HARDHAT_VERBOSE=true
 -   solidity - Juan Blanco
 -   Mocha Test Explorer - Holger Benl
 -   Vue Language Features (Volar) - Johnson Chu
+
+### Want to help out?
+
+Contact BoringCrypto on Twitter (@Boring_Crypto) or on Discord (BoringCrypto#3523).
+
+To move YieldBox along, help is needed with:
+
+-   Documentation (setting up GitBook and building out docs)
+-   Sample apps - Several sample contracts have been created, they need a UI, testing and documentation
+    -   Salary - stream with optional cliff
+    -   Escrow -
+    -   Lending - isolated lending contract
+    -   Tokenizer - tokenize anything, most useful for NFTs
+    -   Swap - AMM based off Uni V2
+-   Building strategies (you're free to add a fee to your strategy)
+-

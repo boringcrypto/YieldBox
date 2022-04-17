@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, useSlots, PropType, toRefs } from "vue"
-import { connectors } from "../classes/NetworkConnectors"
+import { connectors } from "../../sdk/NetworkConnectors"
 
 const props = defineProps<{
     address: String | undefined | null

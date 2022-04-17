@@ -13,7 +13,6 @@ const info = computed(function () {
 const detail = ref({
     ethBalance: BigNumber.from("0"),
 })
-
 const load = async function () {
     detail.value.ethBalance = await hardhat.provider.getBalance(address.value)
 }
@@ -23,13 +22,13 @@ watch(() => [address, hardhat.block.number], load)
 </script>
 
 <template>
-    <div class="row" v-if="info">
+    <div class="row">
         <div class="mx-auto" style="max-width: 800px">
             <h2>
                 <span v-if="info">
-                    <b-icon v-if="info.type == 'zero'" class="me-1" icon="trash2" />
-                    <b-icon v-if="info.type == 'wallet'" class="me-1" icon="wallet" />
-                    <b-icon v-if="info.type == 'contract'" class="me-1" icon="file-text" />
+                    <i v-if="info.type == 'zero'" class="bi bi-trash2" />
+                    <i v-if="info.type == 'wallet'" class="bi bi-wallet" />
+                    <i v-if="info.type == 'contract'" class="bi bi-file-text" />
                     <span v-if="info.type == 'miner'" class="me-1">👷</span>
                     {{ info.name }}
                 </span>

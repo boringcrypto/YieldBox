@@ -25,8 +25,8 @@ import "../../YieldBox.sol";
 // solhint-disable not-rely-on-time
 
 struct Market {
-    uint256 collateral;
-    uint256 asset;
+    uint32 collateral;
+    uint32 asset;
     IOracle oracle;
     bytes oracleData;
     // Collateral
@@ -47,13 +47,14 @@ struct Market {
     uint256 exchangeRate;
     uint64 interestPerSecond;
     uint64 lastAccrued;
-    uint128 assetId;
+    uint32 assetId;
 }
 
 /// @title LendingPair
 contract LendingPair is IMasterContract {
     using RebaseLibrary for Rebase;
     using BoringERC20 for IERC20;
+    using BoringMath for uint256;
 
     event LogExchangeRate(uint256 rate);
     event LogAccrue(uint256 accruedAmount, uint64 rate, uint256 utilization);
@@ -104,12 +105,12 @@ contract LendingPair is IMasterContract {
     }
 
     function createMarket(
-        uint256 collateral_,
-        uint256 asset_,
+        uint32 collateral_,
+        uint32 asset_,
         IOracle oracle_,
         bytes calldata oracleData_
     ) public {
-        uint256 marketId = yieldBox.createToken(
+        uint32 marketId = yieldBox.createToken(
             string(abi.encodePacked(yieldBox.name(collateral_), "/", yieldBox.name(asset_), "-", oracle_.name(oracleData_))),
             string(abi.encodePacked(yieldBox.symbol(collateral_), "/", yieldBox.symbol(asset_), "-", oracle_.symbol(oracleData_))),
             18,
@@ -118,8 +119,8 @@ contract LendingPair is IMasterContract {
 
         Market storage market = markets[marketId];
         (market.collateral, market.asset, market.oracle, market.oracleData) = (collateral_, asset_, oracle_, oracleData_);
-        market.interestPerSecond = uint64(STARTING_INTEREST_PER_SECOND); // 1% APR, with 1e18 being 100%
-        market.assetId = uint128(marketId);
+        market.interestPerSecond = STARTING_INTEREST_PER_SECOND; // 1% APR, with 1e18 being 100%
+        market.assetId = marketId;
 
         marketList.push(marketId);
     }
@@ -133,7 +134,7 @@ contract LendingPair is IMasterContract {
         if (elapsedTime == 0) {
             return;
         }
-        market.lastAccrued = uint64(block.timestamp);
+        market.lastAccrued = block.timestamp.to64();
 
         if (market.totalBorrow.base == 0) {
             // If there are no borrows, reset the interest rate
@@ -148,7 +149,7 @@ contract LendingPair is IMasterContract {
 
         // Accrue interest
         extraAmount = (market.totalBorrow.elastic * market.interestPerSecond * elapsedTime) / 1e18;
-        market.totalBorrow.elastic += uint128(extraAmount);
+        market.totalBorrow.elastic += extraAmount.to128();
         uint256 fullAssetAmount = yieldBox.toAmount(market.asset, yieldBox.totalSupply(marketId), false) + market.totalBorrow.elastic;
 
         // Update interest rate
@@ -156,7 +157,7 @@ contract LendingPair is IMasterContract {
         if (utilization < MINIMUM_TARGET_UTILIZATION) {
             uint256 underFactor = ((MINIMUM_TARGET_UTILIZATION - utilization) * FACTOR_PRECISION) / MINIMUM_TARGET_UTILIZATION;
             uint256 scale = INTEREST_ELASTICITY + (underFactor * underFactor * elapsedTime);
-            market.interestPerSecond = uint64((market.interestPerSecond * INTEREST_ELASTICITY) / scale);
+            market.interestPerSecond = ((market.interestPerSecond * INTEREST_ELASTICITY) / scale).to64();
 
             if (market.interestPerSecond < MINIMUM_INTEREST_PER_SECOND) {
                 market.interestPerSecond = MINIMUM_INTEREST_PER_SECOND; // 0.25% APR minimum
@@ -168,7 +169,7 @@ contract LendingPair is IMasterContract {
             if (newInterestPerSecond > MAXIMUM_INTEREST_PER_SECOND) {
                 newInterestPerSecond = MAXIMUM_INTEREST_PER_SECOND; // 1000% APR maximum
             }
-            market.interestPerSecond = uint64(newInterestPerSecond);
+            market.interestPerSecond = newInterestPerSecond.to64();
         }
 
         emit LogAccrue(extraAmount, market.interestPerSecond, utilization);
@@ -420,8 +421,8 @@ contract LendingPair is IMasterContract {
         emit LogRemoveCollateral(user, swapper == ISwapper(address(0)) ? to : address(swapper), collateralShare);
         emit LogRepay(swapper == ISwapper(address(0)) ? msg.sender : address(swapper), user, borrowAmount, borrowPart);
 
-        market.totalBorrow.elastic -= uint128(borrowAmount);
-        market.totalBorrow.base -= uint128(borrowPart);
+        market.totalBorrow.elastic -= borrowAmount.to128();
+        market.totalBorrow.base -= borrowPart.to128();
         market.totalCollateralShare -= collateralShare;
 
         uint256 borrowShare = yieldBox.toShare(market.asset, borrowAmount, true);

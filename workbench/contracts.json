@@ -778,9 +778,9 @@
                     "name": "createToken",
                     "outputs": [
                         {
-                            "internalType": "uint256",
+                            "internalType": "uint32",
                             "name": "tokenId",
-                            "type": "uint256"
+                            "type": "uint32"
                         }
                     ],
                     "stateMutability": "nonpayable",
@@ -1848,9 +1848,9 @@
                         },
                         {
                             "indexed": false,
-                            "internalType": "uint128",
+                            "internalType": "uint256",
                             "name": "totalShare",
-                            "type": "uint128"
+                            "type": "uint256"
                         },
                         {
                             "indexed": false,
@@ -2144,9 +2144,9 @@
                             "type": "uint64"
                         },
                         {
-                            "internalType": "uint128",
+                            "internalType": "uint256",
                             "name": "share",
-                            "type": "uint128"
+                            "type": "uint256"
                         }
                     ],
                     "stateMutability": "view",

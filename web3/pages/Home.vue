@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { ref, inject, watch } from "vue"
 import Data from "../data-web3"
-import { Network } from "../classes/Network"
+import { Network } from "../../sdk/Network"
 import { ethers, BigNumber } from "ethers"
 import { Token, tokens } from "../classes/TokenManager"
 import { YieldBox, TokenType, Asset } from "../classes/YieldBox"
 import DeployedYieldBox from "../../deployments/localhost/YieldBox.json"
 import USDAmount from "../components/USDAmount.vue"
 import TokenAmount from "../components/TokenAmount.vue"
-import { connectors } from "../classes/NetworkConnectors"
+import { connectors } from "../../sdk/NetworkConnectors"
 import { CoinGecko } from "../classes/CoinGeckoAPI"
 import Web3Modal from "../components/Web3Modal.vue"
 import TokenAmountInput from "../components/TokenAmountInput.vue"
@@ -19,13 +19,15 @@ const tokenAddress = ref("")
 const yieldBox = new YieldBox(Network.HARDHAT, DeployedYieldBox.address)
 
 const load = async () => {
+    await tokens.loadTokenList()
+
     console.log("Load assets")
     await yieldBox.loadAssets()
 
     console.log("Load balances")
-    await app.web3.account?.loadNetworkBalances(app.web3.chainId)
+    await app.account?.loadNetworkBalances(app.web3.chainId)
     console.log("Load yieldBox balances")
-    await app.web3.account?.loadYieldBoxBalances(yieldBox)
+    await app.account?.loadYieldBoxBalances(yieldBox)
 
     console.log("Load prices")
     const connector = new connectors[app.web3.chainId]()
@@ -52,7 +54,7 @@ const addToken = async () => {
 
 const deposit = async () => {
     if (depositToken.value && depositAmount.value) {
-        const amount = depositAmount.value.eq(-1) ? app.web3.account?.balance(depositToken.value) || 0 : depositAmount.value
+        const amount = depositAmount.value.eq(-1) ? app.account?.balance(depositToken.value) || 0 : depositAmount.value
         await app.web3.send(
             yieldBox.yieldBox
                 .connect(app.web3.provider!.getSigner())
@@ -108,13 +110,13 @@ const withdraw = async () => {
                         <th>Value</th>
                     </thead>
                     <tbody>
-                        <tr v-for="token in app.web3.account?.tokens">
+                        <tr v-for="token in app.account?.tokens">
                             <td>{{ token.symbol }}</td>
                             <td>
-                                <TokenAmount :token="token" :amount="app.web3.account?.balance(token)" />
+                                <TokenAmount :token="token" :amount="app.account?.balance(token)" />
                             </td>
                             <td>
-                                <USDAmount :amount="app.web3.account?.value(token)" />
+                                <USDAmount :amount="app.account?.value(token)" />
                             </td>
                             <td class="text-end">
                                 <b-button v-b-modal.modal-deposit @click="depositToken = token">Deposit</b-button>
@@ -137,17 +139,17 @@ const withdraw = async () => {
                         <th>Value</th>
                     </thead>
                     <tbody>
-                        <tr v-for="asset in app.web3.account?.assets">
+                        <tr v-for="asset in app.account?.assets">
                             <td>
                                 <template v-if="asset.token">
                                     {{ asset.token.symbol }}
                                 </template>
                             </td>
                             <td>
-                                <TokenAmount :token="asset.token" :amount="app.web3.account?.assetBalance(asset)" />
+                                <TokenAmount :token="asset.token" :amount="app.account?.assetBalance(asset)" />
                             </td>
                             <td>
-                                <USDAmount :amount="app.web3.account?.assetValue(asset)" />
+                                <USDAmount :amount="app.account?.assetValue(asset)" />
                             </td>
                             <td class="text-end">
                                 <b-button v-b-modal.modal-withdraw @click="withdrawAsset = asset">Withdraw</b-button>
@@ -163,11 +165,11 @@ const withdraw = async () => {
             :title="'Deposit ' + depositToken?.symbol"
             :token="depositToken"
             :spender="yieldBox.yieldBox.address"
-            :amount="app.web3.account?.balance(depositToken)"
+            :amount="app.account?.balance(depositToken)"
             @click="deposit"
         >
             <label>Amount:</label>
-            <TokenAmountInput v-model="depositAmount" :token="depositToken" :max="app.web3.account?.balance(depositToken)"></TokenAmountInput>
+            <TokenAmountInput v-model="depositAmount" :token="depositToken" :max="app.account?.balance(depositToken)"></TokenAmountInput>
 
             <label>Strategy:</label>
             <b-form-select></b-form-select>
@@ -178,7 +180,7 @@ const withdraw = async () => {
             <TokenAmountInput
                 v-model="withdrawAmount"
                 :token="withdrawAsset?.token"
-                :max="app.web3.account?.assetBalance(withdrawAsset)"
+                :max="app.account?.assetBalance(withdrawAsset)"
             ></TokenAmountInput>
         </Web3Modal>
     </div>

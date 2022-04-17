@@ -6,9 +6,9 @@ import "../YieldBox.sol";
 struct Pair {
     uint128 reserve0;
     uint128 reserve1;
-    uint64 asset0;
-    uint64 asset1;
-    uint64 lpAssetId;
+    uint32 asset0;
+    uint32 asset1;
+    uint32 lpAssetId;
     uint256 kLast;
 }
 
@@ -33,6 +33,8 @@ library Math {
 }
 
 contract YieldSwap {
+    using BoringMath for uint256;
+
     YieldBox public yieldBox;
 
     constructor(YieldBox _yieldBox) {
@@ -49,12 +51,12 @@ contract YieldSwap {
     event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to);
     event Sync(uint112 reserve0, uint112 reserve1);
 
-    function create(uint64 asset0, uint64 asset1) public returns (uint256 pairId) {
+    function create(uint32 asset0, uint32 asset1) public returns (uint256 pairId) {
         if (asset0 > asset1) {
             (asset0, asset1) = (asset1, asset0);
         }
 
-        uint64 lpAssetId = uint64(yieldBox.createToken("YieldBox LP Token", "YLP", 18, ""));
+        uint32 lpAssetId = yieldBox.createToken("YieldBox LP Token", "YLP", 18, "");
         pairId = pairs.length;
         pairLookup[asset0][asset1] = pairId;
         pairs.push(Pair(0, 0, asset0, asset1, lpAssetId, 0));
@@ -78,8 +80,8 @@ contract YieldSwap {
         require(liquidity > 0, "YieldSwap: Not enough mint");
         yieldBox.mint(pair.lpAssetId, to, liquidity);
 
-        pair.reserve0 = uint112(balance0);
-        pair.reserve1 = uint112(balance1);
+        pair.reserve0 = balance0.to128();
+        pair.reserve1 = balance1.to128();
     }
 
     function burn(uint256 pairId, address to) external returns (uint256 share0, uint256 share1) {
@@ -97,8 +99,8 @@ contract YieldSwap {
         yieldBox.transfer(address(this), to, pair.asset0, share0);
         yieldBox.transfer(address(this), to, pair.asset1, share1);
 
-        pair.reserve0 = uint112(yieldBox.balanceOf(address(this), pair.asset0));
-        pair.reserve1 = uint112(yieldBox.balanceOf(address(this), pair.asset1));
+        pair.reserve0 = yieldBox.balanceOf(address(this), pair.asset0).to128();
+        pair.reserve1 = yieldBox.balanceOf(address(this), pair.asset1).to128();
     }
 
     function swap(
@@ -123,8 +125,8 @@ contract YieldSwap {
         require(share0In > 0 || share1In > 0, "YieldSwap: No input");
         require(balance0 * balance1 >= pair.reserve0 * pair.reserve1, "YieldSwap: K");
 
-        pair.reserve0 = uint112(balance0);
-        pair.reserve1 = uint112(balance1);
+        pair.reserve0 = balance0.to128();
+        pair.reserve1 = balance1.to128();
     }
 
     // force balances to match reserves
@@ -139,7 +141,7 @@ contract YieldSwap {
     function sync(uint256 pairId) external {
         Pair storage pair = pairs[pairId];
 
-        pair.reserve0 = uint112(yieldBox.balanceOf(address(this), pair.asset0));
-        pair.reserve1 = uint112(yieldBox.balanceOf(address(this), pair.asset1));
+        pair.reserve0 = yieldBox.balanceOf(address(this), pair.asset0).to128();
+        pair.reserve1 = yieldBox.balanceOf(address(this), pair.asset1).to128();
     }
 }

@@ -21,8 +21,8 @@ contract SushiStakingStrategy is BaseERC20Strategy {
 
     constructor(IYieldBox _yieldBox, address _contractAddress) BaseERC20Strategy(_yieldBox, _contractAddress) {}
 
-    string public constant override name = "xSUSHI";
-    string public constant override description = "Stakes SUSHI into the SushiBar for xSushi";
+    string public constant override name = "xSUSHI-Buffered";
+    string public constant override description = "Stakes SUSHI into the SushiBar for xSushi with a buffer";
 
     IERC20 private constant sushi = IERC20(0x6B3595068778DD592e39A122f4f5a5cF09C90fE2);
     ISushiBar private constant sushiBar = ISushiBar(0x8798249c2E607446EfB7Ad49eC89dD1865Ff4272);
@@ -37,7 +37,7 @@ contract SushiStakingStrategy is BaseERC20Strategy {
         return _balance;
     }
 
-    function _currentBalance() private view returns (uint256 amount) {
+    function _currentBalance() internal view override returns (uint256 amount) {
         return
             sushi.balanceOf(address(this)) + (sushi.balanceOf(address(sushiBar)) * sushiBar.balanceOf(address(this))) / sushiBar.totalSupply();
     }
@@ -67,7 +67,6 @@ contract SushiStakingStrategy is BaseERC20Strategy {
     /// for small deposits.
     /// Only accept this call from the YieldBox
     function _deposited(uint256 amount) internal override {
-        require(msg.sender == address(yieldBox), "Not yieldBox");
         // Update cached balance with the new added amount
         _balance += amount;
         // Get the size of the reserve in % (1e18 based)
@@ -84,7 +83,6 @@ contract SushiStakingStrategy is BaseERC20Strategy {
     /// the strategy should divest enough from the strategy to complete the withdrawal and rebalance the reserve.
     /// Only accept this call from the YieldBox
     function _withdraw(address to, uint256 amount) internal override {
-        require(msg.sender == address(yieldBox), "Not yieldBox");
         _balance = _balance > amount ? _balance - amount : 0;
 
         uint256 reserve = sushi.balanceOf(address(this));

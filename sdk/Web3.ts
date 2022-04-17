@@ -4,7 +4,6 @@ import { computed, ComputedRef, markRaw, reactive } from "vue"
 import { NetworkConnector } from "./NetworkConnector"
 import { Network } from "./Network"
 import { connectors } from "./NetworkConnectors"
-import { Account } from "./Account"
 
 export interface SerializedEthereumRpcError {
     code: number // must be an integer
@@ -81,10 +80,10 @@ export default class Web3 {
     provider?: ethers.providers.JsonRpcProvider
     update?: ComputedRef<string>
     connector?: ComputedRef<NetworkConnector | null>
-    account?: Account
     nonce?: number
     queue: TransactionInfo[] = reactive([])
     active = computed(() => this.queue.filter((info) => info.status === "Signing" || info.status === "Sending" || info.status === "Pending"))
+    onAccountChanged?: (address: string) => void
 
     connect() {
         if (this.connected && window.ethereum.request) {
@@ -132,7 +131,9 @@ export default class Web3 {
                 this.provider?.off("block")
                 this.provider = markRaw(new ethers.providers.Web3Provider(window.ethereum))
                 this.provider.on("block", handleBlock)
-                this.account = this.address ? new Account(this.address) : undefined
+                if (this.onAccountChanged) {
+                    this.onAccountChanged(this.address)
+                }
             }
             const handleConnect = (info: ConnectInfo) => {
                 handleChainChanged(info.chainId)
@@ -141,10 +142,14 @@ export default class Web3 {
                 this.addresses = newAddresses || []
                 if (newAddresses && newAddresses.length) {
                     this.address = ethers.utils.getAddress(newAddresses[0])
-                    this.account = new Account(this.address)
+                    if (this.onAccountChanged) {
+                        this.onAccountChanged(this.address)
+                    }
                 } else {
                     this.address = ""
-                    this.account = undefined
+                    if (this.onAccountChanged) {
+                        this.onAccountChanged(this.address)
+                    }
                 }
             }
 

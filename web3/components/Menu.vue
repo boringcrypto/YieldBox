@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Network } from "../classes/Network"
+import { Network } from "../../sdk/Network"
 </script>
 
 <template>

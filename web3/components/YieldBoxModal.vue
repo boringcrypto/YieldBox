@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { inject, ref, computed, watch } from "vue"
-import { connectors } from "../classes/NetworkConnectors"
+import { connectors } from "../../sdk/NetworkConnectors"
 import Data from "../data-web3"
 import { YieldBox } from "../../typechain-types"
 

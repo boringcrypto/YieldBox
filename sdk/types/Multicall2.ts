@@ -15,7 +15,7 @@ import {
 } from "ethers"
 import { FunctionFragment, Result } from "@ethersproject/abi"
 import { Listener, Provider } from "@ethersproject/providers"
-import { TypedEventFilter, TypedEvent, TypedListener, OnEvent } from "./common"
+import { TypedEventFilter, TypedEvent, TypedListener, OnEvent } from "../../web3/classes/types/common"
 
 export declare namespace Multicall2 {
     export type CallStruct = { target: string; callData: BytesLike }

@@ -18,7 +18,7 @@ contract Salary is BoringBatchable {
         uint32 cliffTimestamp,
         uint32 endTimestamp,
         uint32 cliffPercent,
-        uint128 totalShare,
+        uint256 totalShare,
         uint256 salaryId
     );
     event LogWithdraw(uint256 indexed salaryId, address indexed to, uint256 share);
@@ -58,7 +58,7 @@ contract Salary is BoringBatchable {
         // The cliff payout in percent of the share
         uint64 cliffPercent;
         // The total payout in share
-        uint128 share;
+        uint256 share;
     }
 
     /// Array of all salaries managed by the contract
@@ -95,10 +95,10 @@ contract Salary is BoringBatchable {
         salary.cliffTimestamp = cliffTimestamp;
         salary.endTimestamp = endTimestamp;
         salary.cliffPercent = cliffPercent;
-        salary.share = uint128(share);
+        salary.share = share;
         salaries.push(salary);
 
-        emit LogCreate(msg.sender, recipient, assetId, cliffTimestamp, endTimestamp, cliffPercent, uint128(share), salaryId);
+        emit LogCreate(msg.sender, recipient, assetId, cliffTimestamp, endTimestamp, cliffPercent, share, salaryId);
     }
 
     function _available(UserSalary memory salary) internal view returns (uint256 share) {

@@ -1,11 +1,13 @@
-import { Network } from "./Network"
+import { Network } from "../../sdk/Network"
 import { reactive, computed, ComputedRef } from "vue"
 import { ethers, BigNumber } from "ethers"
-import Web3 from "./Web3"
-import { connectors } from "./NetworkConnectors"
+import Web3 from "../../sdk/Web3"
+import { connectors } from "../../sdk/NetworkConnectors"
 import { IERC20__factory, IUniswapV2Pair__factory } from "./types"
-import { NetworkConnector } from "./NetworkConnector"
+import { NetworkConnector } from "../../sdk/NetworkConnector"
 import Decimal from "decimal.js-light"
+import axios from "axios"
+import { TokenList } from "@uniswap/token-lists"
 
 export class Token {
     network: Network
@@ -324,6 +326,22 @@ class TokenManager {
             undefined,
             toLoad
         )
+    }
+
+    async loadTokenList() {
+        const response = await axios.get("https://cdn.furucombo.app/furucombo.tokenlist.json")
+        if (response.status == 200) {
+            const list = response.data as TokenList
+            list.tokens.forEach((info) => {
+                const token = this.get(info.chainId == 1 ? 31337 : info.chainId, info.address)
+                const tokenDetail = new ERC20Token(token)
+                tokenDetail.name = info.name
+                tokenDetail.symbol = info.symbol
+                tokenDetail.decimals = info.decimals
+                token.details = tokenDetail
+                token.loaded = true
+            })
+        }
     }
 
     load() {

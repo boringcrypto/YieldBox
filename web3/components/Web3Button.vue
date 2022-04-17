@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { inject, ref } from "vue"
 import { ethers, BigNumber } from "ethers"
-import { connectors } from "../classes/NetworkConnectors"
+import { connectors } from "../../sdk/NetworkConnectors"
 import Data from "../data-web3"
 import { IERC20__factory } from "../classes/types"
 import { Token } from "../classes/TokenManager"

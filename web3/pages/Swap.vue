@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, Ref, inject, watch, computed, reactive } from "vue"
 import Data from "../data-web3"
-import { Network } from "../classes/Network"
+import { Network } from "../../sdk/Network"
 import { ethers, BigNumber } from "ethers"
 import { Token, tokens } from "../classes/TokenManager"
 import { YieldBox, TokenType, Asset } from "../classes/YieldBox"
@@ -9,7 +9,7 @@ import DeployedYieldBox from "../../deployments/localhost/YieldBox.json"
 import DeployedSalary from "../../deployments/localhost/Salary.json"
 import USDAmount from "../components/USDAmount.vue"
 import TokenAmount from "../components/TokenAmount.vue"
-import { connectors } from "../classes/NetworkConnectors"
+import { connectors } from "../../sdk/NetworkConnectors"
 import { CoinGecko } from "../classes/CoinGeckoAPI"
 import Web3Modal from "../components/Web3Modal.vue"
 import TokenAmountInput from "../components/TokenAmountInput.vue"
@@ -28,7 +28,7 @@ const load = async () => {
     await yieldBox.loadAssets()
 
     console.log("Load yieldBox balances")
-    await app.web3.account?.loadYieldBoxBalances(yieldBox)
+    await app.account?.loadYieldBoxBalances(yieldBox)
 
     console.log("Load prices")
     const connector = new connectors[app.web3.chainId]()
