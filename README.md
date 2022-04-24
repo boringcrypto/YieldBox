@@ -1,5 +1,11 @@
 # YieldBox
 
+### Introduction Video
+
+[![YIΞLDBOX - @BoringCrypto at @ETHDubaiConf
+](https://img.youtube.com/vi/JbMQg6-pH8E/0.jpg)](https://www.youtube.com/watch?v=JbMQg6-pH8E)
+
+
 ### Local development
 
 Clone the repo and run `yarn`
@@ -45,4 +51,6 @@ To move YieldBox along, help is needed with:
     -   Tokenizer - tokenize anything, most useful for NFTs
     -   Swap - AMM based off Uni V2
 -   Building strategies (you're free to add a fee to your strategy)
--
+
+
+
