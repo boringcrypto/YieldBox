@@ -27,9 +27,13 @@ contract ERC1155 is IERC1155 {
         require(len == ids.length, "ERC1155: Length mismatch");
 
         balances = new uint256[](len);
-
-        for (uint256 i = 0; i < len; i++) {
+        
+        for (uint256 i; i < len; ) {
             balances[i] = balanceOf[owners[i]][ids[i]];
+            // cannot realistically overflow
+            unchecked {
+                i++;
+            }
         }
     }
 
@@ -80,12 +84,21 @@ contract ERC1155 is IERC1155 {
         uint256[] calldata values
     ) internal {
         require(to != address(0), "No 0 address");
-
-        for (uint256 i = 0; i < ids.length; i++) {
-            uint256 id = ids[i];
-            uint256 value = values[i];
+        
+        // storing these outside the loop saves ~15 gas per iteration
+        uint256 id;
+        uint256 value;
+        
+        for (uint256 i; i < ids.length; ) {
+            id = ids[i];
+            value = values[i];
             balanceOf[from][id] -= value;
             balanceOf[to][id] += value;
+            // cannot realistically overflow
+            unchecked {
+                i++;
+            }
+            
         }
 
         emit TransferBatch(msg.sender, from, to, ids, values);
