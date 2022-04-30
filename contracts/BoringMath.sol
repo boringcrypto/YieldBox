@@ -3,17 +3,17 @@ pragma solidity 0.8.9;
 
 library BoringMath {
     function to128(uint256 a) internal pure returns (uint128 c) {
-        require(a <= type(uint128).max, "BoringMath: uint128 Overflow");
+        require(a < 1 << 128, "BoringMath: uint128 Overflow");
         c = uint128(a);
     }
 
     function to64(uint256 a) internal pure returns (uint64 c) {
-        require(a <= type(uint64).max, "BoringMath: uint64 Overflow");
+        require(a < 1 << 64, "BoringMath: uint64 Overflow");
         c = uint64(a);
     }
 
     function to32(uint256 a) internal pure returns (uint32 c) {
-        require(a <= type(uint32).max, "BoringMath: uint32 Overflow");
+        require(a < 1 << 32, "BoringMath: uint32 Overflow");
         c = uint32(a);
     }
 
