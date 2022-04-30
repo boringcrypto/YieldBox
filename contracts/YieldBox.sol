@@ -301,18 +301,29 @@ contract YieldBox is BoringBatchable, NativeTokenFactory, ERC1155TokenReceiver {
     ) public allowed(from) {
         // Checks
         uint256 len = tos.length;
-        for (uint256 i = 0; i < len; i++) {
+        for (uint256 i; i < len; ) {
             require(tos[i] != address(0), "YieldBox: to not set"); // To avoid a bad UI from burning funds
+            // cannot realistically overflow
+            unchecked {
+                i++;
+            }
         }
 
         // Effects
         uint256 totalAmount;
-        for (uint256 i = 0; i < len; i++) {
-            address to = tos[i];
-            uint256 share_ = shares[i];
+        // storing these outside the loop saves ~15 gas per iteration
+        address to;
+        uint256 share_;
+        for (uint256 i; i < len; ) {
+            to = tos[i];
+            share_ = shares[i];
             balanceOf[to][assetId] += share_;
             totalAmount += share_;
             emit TransferSingle(msg.sender, from, to, assetId, share_);
+            // cannot realistically overflow
+            unchecked {
+                i++;
+            }
         }
         balanceOf[from][assetId] -= totalAmount;
     }
