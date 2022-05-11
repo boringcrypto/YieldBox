@@ -9,7 +9,6 @@ package-lock.json
 .coverage_contracts/
 coverage/
 coverage.json
-scripts/make_abi.js
 .env
 yarn-error.log
 .last_confs/*

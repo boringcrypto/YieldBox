@@ -19,6 +19,7 @@ interface ISushiBar is IERC20 {
 
 contract SushiStakingStrategy is BaseERC20Strategy {
     using BoringERC20 for IERC20;
+    using BoringERC20 for ISushiBar;
     using BoringMath for uint256;
 
     constructor(IYieldBox _yieldBox) BaseERC20Strategy(_yieldBox, address(sushi)) {}
@@ -30,8 +31,10 @@ contract SushiStakingStrategy is BaseERC20Strategy {
     ISushiBar private constant sushiBar = ISushiBar(0x8798249c2E607446EfB7Ad49eC89dD1865Ff4272);
 
     function _currentBalance() internal view override returns (uint256 amount) {
-        return
-            sushi.balanceOf(address(this)) + (sushi.balanceOf(address(sushiBar)) * sushiBar.balanceOf(address(this))) / sushiBar.totalSupply();
+        uint256 sushiBalance = sushi.safeBalanceOf(address(this));
+        uint256 sushiInBar = sushi.safeBalanceOf(address(sushiBar));
+        uint256 xSushiBalance = sushiBar.safeBalanceOf(address(this));
+        return sushiBalance + xSushiBalance.muldiv(sushiInBar, sushiBar.safeTotalSupply(), false);
     }
 
     function _deposited(uint256 amount) internal override {
@@ -39,8 +42,8 @@ contract SushiStakingStrategy is BaseERC20Strategy {
     }
 
     function _withdraw(address to, uint256 amount) internal override {
-        uint256 totalSushi = sushi.balanceOf(address(sushiBar));
-        uint256 totalxSushi = sushiBar.totalSupply();
+        uint256 totalSushi = sushi.safeBalanceOf(address(sushiBar));
+        uint256 totalxSushi = sushiBar.safeTotalSupply();
 
         sushiBar.leave(amount.muldiv(totalxSushi, totalSushi, true));
         sushi.safeTransfer(to, amount);

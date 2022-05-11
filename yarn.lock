@@ -43,9 +43,9 @@
     "@babel/helper-validator-identifier" "^7.16.7"
     to-fast-properties "^2.0.0"
 
-"@boringcrypto/boring-solidity@boringcrypto/BoringSolidity#fed25c5d43cb7ce20764cd0b838e21a02ea162e9":
+"@boringcrypto/boring-solidity@boringcrypto/BoringSolidity#c343377d4633f8a7f320993679d9f2b04c87b066":
   version "2.0.2"
-  resolved "https://codeload.github.com/boringcrypto/BoringSolidity/tar.gz/fed25c5d43cb7ce20764cd0b838e21a02ea162e9"
+  resolved "https://codeload.github.com/boringcrypto/BoringSolidity/tar.gz/c343377d4633f8a7f320993679d9f2b04c87b066"
 
 "@boringcrypto/hardhat-framework@boringcrypto/hardhat-framework#fb3efb3f2f6db3ca798acd5fd3454e62b169a856":
   version "2.0.0"

@@ -18,7 +18,7 @@
         "workbench": "vite --config workbench/vite.config.ts"
     },
     "dependencies": {
-        "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#fed25c5d43cb7ce20764cd0b838e21a02ea162e9",
+        "@boringcrypto/boring-solidity": "boringcrypto/BoringSolidity#c343377d4633f8a7f320993679d9f2b04c87b066",
         "@openzeppelin/contracts": "^4.5.0",
         "@popperjs/core": "^2.11.2",
         "@uniswap/token-lists": "^1.0.0-beta.28",
