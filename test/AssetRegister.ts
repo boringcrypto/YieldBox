@@ -30,7 +30,7 @@ describe("AssetRegister", () => {
         register = await new AssetRegister__factory(deployer).deploy()
         await register.deployed()
 
-        sushiStrategy = await new SushiStakingStrategy__factory(deployer).deploy(Zero, sushi)
+        sushiStrategy = await new SushiStakingStrategy__factory(deployer).deploy(Zero)
         await sushiStrategy.deployed()
     })
 

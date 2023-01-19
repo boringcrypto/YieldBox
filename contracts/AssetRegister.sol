@@ -49,7 +49,7 @@ contract AssetRegister is ERC1155 {
             // Only do these checks if a new asset needs to be created
             require(tokenId == 0 || tokenType != TokenType.ERC20, "YieldBox: No tokenId for ERC20");
             require(
-                strategy == NO_STRATEGY ||
+                tokenType == TokenType.Native ||
                     (tokenType == strategy.tokenType() && contractAddress == strategy.contractAddress() && tokenId == strategy.tokenId()),
                 "YieldBox: Strategy mismatch"
             );

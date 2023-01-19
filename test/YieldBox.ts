@@ -490,24 +490,6 @@ describe("YieldBox", function () {
             await yieldBox.setApprovalForAll(master.address, true)
             await master.run({ value: 2000 })
         })
-
-        it("runs full cycle as clone of MasterContract", async function () {
-            const master = await new MasterContractFullCycleMock__factory(deployer).deploy(yieldBox.address)
-            await master.deployed()
-            const tx = await yieldBox.deploy(
-                master.address,
-                new ethers.utils.AbiCoder().encode(
-                    ["address", "address", "address", "address", "address", "address"],
-                    [Deployer, token.address, erc1155.address, tokenStrategy.address, erc1155Strategy.address, ethStrategy.address]
-                ),
-                false
-            )
-            const receipt = await tx.wait()
-            const clone = MasterContractFullCycleMock__factory.connect(yieldBox.interface.parseLog(receipt.logs[0]).args.cloneAddress, deployer)
-
-            await yieldBox.setApprovalForAll(master.address, true)
-            await clone.run({ value: 2000 })
-        })
     })
 
     describe("uri", () => {
@@ -526,16 +508,6 @@ describe("YieldBox", function () {
     describe("setApprovalForAll", () => {
         it("reverts when operator is 0", async function () {
             await expect(yieldBox.setApprovalForAll(Zero, true)).to.be.revertedWith("YieldBox: operator not set")
-        })
-
-        it("reverts when caller is a clone", async function () {
-            const master = await new MasterContractMock__factory(deployer).deploy(yieldBox.address)
-            await master.deployed()
-            const tx = await yieldBox.deploy(master.address, "0x", false)
-            const receipt = await tx.wait()
-            const clone = MasterContractMock__factory.connect(yieldBox.interface.parseLog(receipt.logs[0]).args.cloneAddress, deployer)
-
-            await expect(clone.setApproval()).to.be.revertedWith("YieldBox: user is clone")
         })
     })
 })

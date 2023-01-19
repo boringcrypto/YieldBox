@@ -70,13 +70,3 @@ abstract contract BaseERC1155Strategy is BaseStrategy {
         tokenId = _tokenId;
     }
 }
-
-abstract contract BaseNativeStrategy is BaseStrategy {
-    TokenType public constant tokenType = TokenType.Native;
-    uint256 public immutable tokenId;
-    address public constant contractAddress = address(0);
-
-    constructor(IYieldBox _yieldBox, uint256 _tokenId) BaseStrategy(_yieldBox) {
-        tokenId = _tokenId;
-    }
-}
